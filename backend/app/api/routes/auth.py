@@ -6,17 +6,25 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.security import create_access_token
-from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.token import LoginRequest, Token
 from app.schemas.user import UserPublic
+from app.services.auth import AuthError, authenticate
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
 
 def _issue_token(db: Session, username: str, password: str) -> Token:
-    user = user_crud.authenticate(db, username, password)
+    try:
+        user = authenticate(db, username, password)
+    except AuthError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.detail,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -194,14 +194,14 @@ async function handleSubmit() {
         <form class="mt-8 space-y-5" @submit.prevent="handleSubmit">
           <div class="anim d2">
             <label for="username" class="mb-1.5 block text-sm font-medium text-slate-300">
-              用户名
+              账号
             </label>
             <input
               id="username"
               v-model="username"
               type="text"
               autocomplete="username"
-              placeholder="请输入用户名"
+              placeholder="用户名 / 域账号"
               class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-indigo-400 focus:bg-white/10 focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
@@ -252,6 +252,7 @@ async function handleSubmit() {
         </form>
 
         <p class="anim d4 mt-6 text-center text-xs text-slate-500">
+          支持 AD 域账号登录(域\账号 或 账号@域)<br />
           测试账号:<span class="text-slate-400">admin / admin123</span>
         </p>
       </div>

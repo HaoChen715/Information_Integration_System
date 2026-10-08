@@ -20,6 +20,20 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    # ---- 认证后端(按顺序尝试) ----
+    AUTH_BACKENDS: list[str] = ["local", "ldap"]
+
+    # ---- AD / LDAP 配置 ----
+    LDAP_ENABLED: bool = False
+    LDAP_SERVER: str = "ldaps://localhost"  # 生产必须 ldaps://
+    LDAP_BIND_DN: str = ""  # 用于搜索的服务账号
+    LDAP_BIND_PASSWORD: str = ""
+    LDAP_BASE_DN: str = ""
+    LDAP_CONNECT_TIMEOUT: int = 5
+    LDAP_AUTO_PROVISION: bool = True
+    # AD 组 DN(或组 CN) -> 本地角色 code
+    LDAP_GROUP_ROLE_MAP: dict[str, str] = {}
+
 
 @lru_cache
 def get_settings() -> Settings:

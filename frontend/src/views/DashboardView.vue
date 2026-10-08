@@ -39,7 +39,8 @@ function handleLogout() {
           <div class="text-right">
             <p class="text-sm font-medium text-slate-700">{{ auth.displayName }}</p>
             <p class="text-xs text-slate-400">
-              {{ auth.user?.is_superuser ? '管理员' : '普通用户' }}
+              {{ auth.user?.is_superuser ? '管理员' : '普通用户' }} ·
+              {{ auth.user?.auth_source === 'ad' ? 'AD 域' : '本地' }}
             </p>
           </div>
           <button
@@ -58,7 +59,7 @@ function handleLogout() {
       </h1>
       <p class="mt-1 text-sm text-slate-500">登录成功,这里是系统主页占位,后续接入业务模块。</p>
 
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
           <p class="text-xs font-medium uppercase tracking-wide text-slate-400">用户名</p>
           <p class="mt-2 text-lg font-semibold text-slate-800">{{ auth.user?.username }}</p>
@@ -68,6 +69,21 @@ function handleLogout() {
           <p class="mt-2 text-lg font-semibold text-slate-800">
             {{ auth.user?.email || '—' }}
           </p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-400">角色</p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            <template v-if="auth.user?.roles.length">
+              <span
+                v-for="role in auth.user.roles"
+                :key="role"
+                class="rounded-md bg-indigo-50 px-2 py-0.5 text-sm font-medium text-indigo-600"
+              >
+                {{ role }}
+              </span>
+            </template>
+            <span v-else class="text-lg font-semibold text-slate-800">—</span>
+          </div>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-5">
           <p class="text-xs font-medium uppercase tracking-wide text-slate-400">最近登录</p>

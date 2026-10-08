@@ -1,0 +1,27 @@
+services:
+  samba-ad:
+    image: nowsci/samba-domain
+    container_name: test-samba-ad
+    hostname: dc
+    restart: unless-stopped
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+      - SYS_TIME
+    environment:
+      - DOMAIN=${DOMAIN:-EXAMPLE.LOCAL}
+      - DOMAINPASS=${DOMAINPASS:-Passw0rd!2026}
+      - NOCOMPLEXITY=true
+      - INSECURELDAP=true
+      - DNSFORWARDER=${DNSFORWARDER:-8.8.8.8}
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - samba_data:/var/lib/samba
+      - samba_config:/etc/samba/external
+
+volumes:
+  samba_data:
+  samba_config:

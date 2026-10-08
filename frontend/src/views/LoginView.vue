@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
@@ -17,6 +17,71 @@ const error = ref('')
 const canSubmit = computed(
   () => username.value.trim().length > 0 && password.value.length > 0 && !submitting.value,
 )
+
+// ---- 鼠标视差:直接写 CSS 变量,不触发 Vue 重渲染 ----
+const sceneRef = ref<HTMLElement | null>(null)
+let rafId = 0
+let currentX = 0
+let currentY = 0
+let targetX = 0
+let targetY = 0
+
+function renderParallax() {
+  currentX += (targetX - currentX) * 0.08
+  currentY += (targetY - currentY) * 0.08
+  const el = sceneRef.value
+  if (el) {
+    el.style.setProperty('--px', currentX.toFixed(4))
+    el.style.setProperty('--py', currentY.toFixed(4))
+  }
+  if (Math.abs(targetX - currentX) < 0.0005 && Math.abs(targetY - currentY) < 0.0005) {
+    rafId = 0
+    return
+  }
+  rafId = requestAnimationFrame(renderParallax)
+}
+
+function onPointerMove(e: PointerEvent) {
+  targetX = e.clientX / window.innerWidth - 0.5
+  targetY = e.clientY / window.innerHeight - 0.5
+  if (!rafId) rafId = requestAnimationFrame(renderParallax)
+}
+
+// ---- 漂浮粒子 ----
+interface Particle {
+  left: string
+  top: string
+  size: string
+  duration: string
+  delay: string
+  opacity: number
+}
+
+const particles = ref<Particle[]>([])
+
+function buildParticles(count: number): Particle[] {
+  const rnd = (min: number, max: number) => min + Math.random() * (max - min)
+  return Array.from({ length: count }, () => ({
+    left: `${rnd(0, 100).toFixed(2)}%`,
+    top: `${rnd(0, 100).toFixed(2)}%`,
+    size: `${rnd(2, 5).toFixed(1)}px`,
+    duration: `${rnd(12, 26).toFixed(1)}s`,
+    delay: `-${rnd(0, 20).toFixed(1)}s`,
+    opacity: rnd(0.15, 0.5),
+  }))
+}
+
+onMounted(() => {
+  // 尊重系统"减少动态效果"设置:关闭视差与粒子
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  particles.value = buildParticles(18)
+  window.addEventListener('pointermove', onPointerMove, { passive: true })
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pointermove', onPointerMove)
+  if (rafId) cancelAnimationFrame(rafId)
+})
 
 async function handleSubmit() {
   if (!canSubmit.value) return
@@ -36,26 +101,52 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950">
-    <!-- 背景装饰 -->
-    <div
-      class="pointer-events-none absolute -top-40 -left-32 h-[32rem] w-[32rem] rounded-full bg-indigo-600/30 blur-3xl"
-    />
-    <div
-      class="pointer-events-none absolute -bottom-48 -right-24 h-[36rem] w-[36rem] rounded-full bg-cyan-500/20 blur-3xl"
-    />
+  <div
+    ref="sceneRef"
+    class="login-scene relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950"
+  >
+    <!-- 动态光晕(带鼠标视差,transform 走 GPU 合成) -->
+    <div class="scene-layer" style="--depth: 44">
+      <div class="blob blob-a" />
+    </div>
+    <div class="scene-layer" style="--depth: 26">
+      <div class="blob blob-b" />
+    </div>
+    <div class="scene-layer" style="--depth: 62">
+      <div class="blob blob-c" />
+    </div>
+
+    <!-- 漂浮粒子 -->
+    <div class="pointer-events-none absolute inset-0 overflow-hidden">
+      <span
+        v-for="(p, i) in particles"
+        :key="i"
+        class="particle"
+        :style="{
+          left: p.left,
+          top: p.top,
+          width: p.size,
+          height: p.size,
+          opacity: p.opacity,
+          animationDuration: p.duration,
+          animationDelay: p.delay,
+        }"
+      />
+    </div>
+
+    <!-- 点阵纹理 -->
     <div
       class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] [background-size:28px_28px]"
     />
 
     <div
-      class="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl md:grid-cols-2"
+      class="login-card relative z-10 grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-md md:grid-cols-2"
     >
       <!-- 左侧品牌区 -->
       <div
         class="hidden flex-col justify-between bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 p-10 text-white md:flex"
       >
-        <div class="flex items-center gap-3">
+        <div class="anim d1 flex items-center gap-3">
           <div
             class="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-xl font-bold ring-1 ring-white/30"
           >
@@ -64,7 +155,7 @@ async function handleSubmit() {
           <span class="text-lg font-semibold tracking-wide">信息集成管理系统</span>
         </div>
 
-        <div class="space-y-4">
+        <div class="anim d2 space-y-4">
           <h1 class="text-3xl font-bold leading-tight">
             统一数据接入<br />高效信息集成
           </h1>
@@ -73,15 +164,20 @@ async function handleSubmit() {
           </p>
         </div>
 
-        <div class="flex items-center gap-2 text-xs text-white/70">
-          <span class="h-2 w-2 rounded-full bg-emerald-400" />
+        <div class="anim d3 flex items-center gap-2 text-xs text-white/70">
+          <span class="relative flex h-2 w-2">
+            <span
+              class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"
+            />
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          </span>
           服务运行正常
         </div>
       </div>
 
       <!-- 右侧登录表单 -->
       <div class="p-8 sm:p-10">
-        <div class="mb-8 md:hidden">
+        <div class="anim d1 mb-8 md:hidden">
           <div class="flex items-center gap-3 text-white">
             <div
               class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 font-bold"
@@ -92,11 +188,11 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <h2 class="text-2xl font-bold text-white">欢迎回来</h2>
-        <p class="mt-1 text-sm text-slate-400">请使用您的账号登录系统</p>
+        <h2 class="anim d1 text-2xl font-bold text-white">欢迎回来</h2>
+        <p class="anim d2 mt-1 text-sm text-slate-400">请使用您的账号登录系统</p>
 
         <form class="mt-8 space-y-5" @submit.prevent="handleSubmit">
-          <div>
+          <div class="anim d2">
             <label for="username" class="mb-1.5 block text-sm font-medium text-slate-300">
               用户名
             </label>
@@ -110,7 +206,7 @@ async function handleSubmit() {
             />
           </div>
 
-          <div>
+          <div class="anim d3">
             <label for="password" class="mb-1.5 block text-sm font-medium text-slate-300">
               密码
             </label>
@@ -144,8 +240,9 @@ async function handleSubmit() {
           <button
             type="submit"
             :disabled="!canSubmit"
-            class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:from-indigo-400 hover:to-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+            class="anim d3 group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-3 font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:from-indigo-400 hover:to-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <span class="sheen" aria-hidden="true" />
             <span
               v-if="submitting"
               class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
@@ -154,10 +251,179 @@ async function handleSubmit() {
           </button>
         </form>
 
-        <p class="mt-6 text-center text-xs text-slate-500">
+        <p class="anim d4 mt-6 text-center text-xs text-slate-500">
           测试账号:<span class="text-slate-400">admin / admin123</span>
         </p>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ---------- 视差层:transform 由 GPU 合成,只读取 CSS 变量 ---------- */
+.scene-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translate3d(
+    calc(var(--px, 0) * var(--depth, 0) * 1px),
+    calc(var(--py, 0) * var(--depth, 0) * 1px),
+    0
+  );
+}
+
+/* ---------- 光晕 ---------- */
+.blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  will-change: transform;
+}
+.blob-a {
+  top: -8rem;
+  left: -8rem;
+  width: 32rem;
+  height: 32rem;
+  background: rgba(79, 70, 229, 0.35);
+  animation: drift-a 22s ease-in-out infinite;
+}
+.blob-b {
+  right: -6rem;
+  bottom: -12rem;
+  width: 36rem;
+  height: 36rem;
+  background: rgba(6, 182, 212, 0.22);
+  animation: drift-b 28s ease-in-out infinite;
+}
+.blob-c {
+  top: 28%;
+  left: 46%;
+  width: 22rem;
+  height: 22rem;
+  background: rgba(168, 85, 247, 0.2);
+  animation: drift-c 26s ease-in-out infinite;
+}
+
+@keyframes drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(5rem, 3rem, 0) scale(1.12);
+  }
+}
+@keyframes drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-4rem, -3rem, 0) scale(1.08);
+  }
+}
+@keyframes drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-3rem, 4rem, 0) scale(1.15);
+  }
+}
+
+/* ---------- 粒子 ---------- */
+.particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: #fff;
+  animation-name: float-up;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes float-up {
+  0% {
+    transform: translate3d(0, 20px, 0);
+  }
+  100% {
+    transform: translate3d(6px, -140px, 0);
+  }
+}
+
+/* ---------- 入场动画 ---------- */
+.login-card {
+  animation: card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.anim {
+  animation: rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.d1 {
+  animation-delay: 0.15s;
+}
+.d2 {
+  animation-delay: 0.25s;
+}
+.d3 {
+  animation-delay: 0.35s;
+}
+.d4 {
+  animation-delay: 0.45s;
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- 按钮扫光 ---------- */
+.sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+}
+.group:hover .sheen {
+  animation: sheen 1.1s ease;
+}
+@keyframes sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+/* ---------- 尊重系统"减少动态效果"设置 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .scene-layer {
+    transform: none;
+  }
+  .blob,
+  .particle,
+  .login-card,
+  .anim,
+  .sheen {
+    animation: none !important;
+  }
+}
+</style>

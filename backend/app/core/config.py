@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -33,6 +34,11 @@ class Settings(BaseSettings):
     LDAP_AUTO_PROVISION: bool = True
     # AD 组 DN(或组 CN) -> 本地角色 code
     LDAP_GROUP_ROLE_MAP: dict[str, str] = {}
+
+    # ---- 首次启动引导管理员(可选,仅当该用户不存在时创建) ----
+    BOOTSTRAP_ADMIN_USERNAME: Optional[str] = None
+    BOOTSTRAP_ADMIN_PASSWORD: Optional[str] = None
+    BOOTSTRAP_ADMIN_EMAIL: Optional[str] = None
 
 
 @lru_cache

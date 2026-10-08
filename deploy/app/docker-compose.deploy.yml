@@ -1,0 +1,36 @@
+name: iis
+
+# 内网部署专用 compose:只使用已加载的镜像,不含 build 段。
+services:
+  backend:
+    image: iis-backend:${TAG:-0.2.1}
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/app.db
+    volumes:
+      - backend_data:/app/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    image: iis-frontend:${TAG:-0.2.1}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:

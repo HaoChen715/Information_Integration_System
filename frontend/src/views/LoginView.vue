@@ -71,9 +71,34 @@ function buildParticles(count: number): Particle[] {
   }))
 }
 
+// ---- 性能探测:GPU 不可用 / 低核 / 系统减少动效 → 自动降级 ----
+function detectLowPerf(): boolean {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true
+  if ((navigator.hardwareConcurrency || 4) <= 2) return true
+  try {
+    // 只提供软件渲染时(无 GPU 加速),该调用返回 null
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl', { failIfMajorPerformanceCaveat: true })
+    if (!gl) return true
+    gl.getExtension('WEBGL_lose_context')?.loseContext()
+  } catch {
+    return true
+  }
+  return false
+}
+
+// 可通过 ?effects=on / ?effects=off 强制开关,便于排查
+function resolvePerfLite(): boolean {
+  const forced = new URLSearchParams(window.location.search).get('effects')
+  if (forced === 'off') return true
+  if (forced === 'on') return false
+  return detectLowPerf()
+}
+
+const perfLite = ref(resolvePerfLite())
+
 onMounted(() => {
-  // 尊重系统"减少动态效果"设置:关闭视差与粒子
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (perfLite.value) return
   particles.value = buildParticles(18)
   window.addEventListener('pointermove', onPointerMove, { passive: true })
 })
@@ -103,6 +128,7 @@ async function handleSubmit() {
 <template>
   <div
     ref="sceneRef"
+    :class="{ 'perf-lite': perfLite }"
     class="login-scene relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950"
   >
     <!-- 动态光晕(带鼠标视差,transform 走 GPU 合成) -->
@@ -140,7 +166,7 @@ async function handleSubmit() {
     />
 
     <div
-      class="login-card relative z-10 grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-md md:grid-cols-2"
+      class="login-card relative z-10 grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 shadow-2xl md:grid-cols-2"
     >
       <!-- 左侧品牌区 -->
       <div
@@ -273,35 +299,49 @@ async function handleSubmit() {
   );
 }
 
-/* ---------- 光晕 ---------- */
+/* ---------- 光晕:radial-gradient 柔和边缘,无需 GPU blur 滤镜 ---------- */
 .blob {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(64px);
   will-change: transform;
 }
 .blob-a {
-  top: -8rem;
-  left: -8rem;
-  width: 32rem;
-  height: 32rem;
-  background: rgba(79, 70, 229, 0.35);
+  top: -12rem;
+  left: -12rem;
+  width: 46rem;
+  height: 46rem;
+  background: radial-gradient(
+    circle at center,
+    rgba(79, 70, 229, 0.5) 0%,
+    rgba(79, 70, 229, 0.18) 38%,
+    rgba(79, 70, 229, 0) 70%
+  );
   animation: drift-a 22s ease-in-out infinite;
 }
 .blob-b {
-  right: -6rem;
-  bottom: -12rem;
-  width: 36rem;
-  height: 36rem;
-  background: rgba(6, 182, 212, 0.22);
+  right: -10rem;
+  bottom: -16rem;
+  width: 52rem;
+  height: 52rem;
+  background: radial-gradient(
+    circle at center,
+    rgba(6, 182, 212, 0.35) 0%,
+    rgba(6, 182, 212, 0.12) 40%,
+    rgba(6, 182, 212, 0) 72%
+  );
   animation: drift-b 28s ease-in-out infinite;
 }
 .blob-c {
-  top: 28%;
-  left: 46%;
-  width: 22rem;
-  height: 22rem;
-  background: rgba(168, 85, 247, 0.2);
+  top: 24%;
+  left: 44%;
+  width: 34rem;
+  height: 34rem;
+  background: radial-gradient(
+    circle at center,
+    rgba(168, 85, 247, 0.32) 0%,
+    rgba(168, 85, 247, 0.1) 42%,
+    rgba(168, 85, 247, 0) 74%
+  );
   animation: drift-c 26s ease-in-out infinite;
 }
 
@@ -354,6 +394,9 @@ async function handleSubmit() {
 
 /* ---------- 入场动画 ---------- */
 .login-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   animation: card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes card-in {
@@ -412,6 +455,26 @@ async function handleSubmit() {
   to {
     transform: translateX(120%);
   }
+}
+
+/* ---------- 低性能 / 无 GPU 环境自动降级 ---------- */
+.perf-lite .scene-layer {
+  transform: none;
+}
+.perf-lite .blob,
+.perf-lite .particle,
+.perf-lite .login-card,
+.perf-lite .anim,
+.perf-lite .sheen {
+  animation: none !important;
+}
+.perf-lite .particle {
+  display: none;
+}
+.perf-lite .login-card {
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ---------- 尊重系统"减少动态效果"设置 ---------- */

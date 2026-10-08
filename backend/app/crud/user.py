@@ -3,6 +3,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.security import hash_password
 from app.models.role import Role
 from app.models.user import User
@@ -35,6 +36,25 @@ def get_or_create_role(db: Session, code: str, name: Optional[str] = None) -> Ro
         db.add(role)
         db.flush()
     return role
+
+
+def ensure_bootstrap_admin(db: Session) -> None:
+    """首次启动时按配置创建引导管理员(已存在则跳过)。"""
+    username = settings.BOOTSTRAP_ADMIN_USERNAME
+    password = settings.BOOTSTRAP_ADMIN_PASSWORD
+    if not username or not password:
+        return
+    if get_by_username(db, username):
+        return
+    create_user(
+        db,
+        UserCreate(
+            username=username,
+            password=password,
+            email=settings.BOOTSTRAP_ADMIN_EMAIL,
+        ),
+        is_superuser=True,
+    )
 
 
 def _group_keys(groups: list[str]) -> set[str]:

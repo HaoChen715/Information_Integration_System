@@ -1,0 +1,23 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+__pypackages__/
+.pdm-python
+*.db
+.env
+
+# Node / frontend
+node_modules/
+dist/
+*.local
+
+# Logs
+*.log
+logs/

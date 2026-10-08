@@ -1,0 +1,51 @@
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user
+from app.core.security import create_access_token
+from app.crud import user as user_crud
+from app.db.session import get_db
+from app.models.user import User
+from app.schemas.token import LoginRequest, Token
+from app.schemas.user import UserPublic
+
+router = APIRouter(prefix="/auth", tags=["认证"])
+
+
+def _issue_token(db: Session, username: str, password: str) -> Token:
+    user = user_crud.authenticate(db, username, password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="用户名或密码错误",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被禁用")
+
+    user.last_login_at = datetime.now(timezone.utc)
+    db.add(user)
+    db.commit()
+
+    return Token(access_token=create_access_token(subject=user.username))
+
+
+@router.post("/login", response_model=Token, summary="用户名密码登录(JSON)")
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> Token:
+    return _issue_token(db, payload.username, payload.password)
+
+
+@router.post("/token", response_model=Token, summary="OAuth2 表单登录(供 Swagger 使用)")
+def login_form(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+) -> Token:
+    return _issue_token(db, form_data.username, form_data.password)
+
+
+@router.get("/me", response_model=UserPublic, summary="获取当前登录用户")
+def read_me(current_user: User = Depends(get_current_user)) -> User:
+    return current_user

@@ -12,8 +12,11 @@ export interface CurrentUser {
   full_name: string | null
   is_active: boolean
   is_superuser: boolean
+  is_admin: boolean
   auth_source: string
+  department: string | null
   roles: string[]
+  permissions: Record<string, string>
   created_at: string
   last_login_at: string | null
 }

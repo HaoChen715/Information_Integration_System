@@ -12,6 +12,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => Boolean(token.value))
   const displayName = computed(() => user.value?.full_name || user.value?.username || '')
+  const permissions = computed<Record<string, string>>(() => user.value?.permissions ?? {})
+  const isAdmin = computed(() => Boolean(user.value?.is_admin || user.value?.is_superuser))
+  const isSuperuser = computed(() => Boolean(user.value?.is_superuser))
+
+  function hasPermission(code: string): boolean {
+    if (user.value?.is_superuser) return true
+    return code in (user.value?.permissions ?? {})
+  }
+
+  function scopeOf(code: string): string | null {
+    return user.value?.permissions?.[code] ?? null
+  }
 
   async function login(username: string, password: string): Promise<void> {
     const data = await authApi.login(username, password)
@@ -43,6 +55,11 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isAuthenticated,
     displayName,
+    permissions,
+    isAdmin,
+    isSuperuser,
+    hasPermission,
+    scopeOf,
     login,
     loadUser,
     acceptToken,

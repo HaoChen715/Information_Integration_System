@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: Optional[str] = None
     BOOTSTRAP_ADMIN_EMAIL: Optional[str] = None
 
+    # ---- 在线用户统计 ----
+    ONLINE_WINDOW_MINUTES: int = 15  # 最近活跃在此窗口内视为在线
+    LAST_SEEN_UPDATE_SECONDS: int = 60  # 活跃时间写入的最小间隔
+
 
 @lru_cache
 def get_settings() -> Settings:

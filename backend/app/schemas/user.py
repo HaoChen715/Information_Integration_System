@@ -1,7 +1,8 @@
-from datetime import datetime
 from typing import Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+
+from app.schemas.common import UTCDatetime
 
 
 class UserBase(BaseModel):
@@ -21,8 +22,11 @@ class UserPublic(UserBase):
     id: int
     is_active: bool
     is_superuser: bool
+    is_admin: bool = False
     auth_source: str = "local"
-    created_at: datetime
-    last_login_at: Optional[datetime] = None
+    department: Optional[str] = None
+    created_at: UTCDatetime
+    last_login_at: Optional[UTCDatetime] = None
     roles: list[str] = Field(default_factory=list, validation_alias=AliasChoices("role_codes"))
+    permissions: dict[str, str] = Field(default_factory=dict)
 

@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, oidc
+from app.api.routes import admin, auth, oidc, records
 from app.core.config import settings
+from app.core.permissions import seed_default_roles, seed_permissions
 from app.crud import user as user_crud
 from app.db.base import Base
+from app.db.migrate import ensure_columns
 from app.db.session import SessionLocal, engine
 import app.models  # noqa: F401  确保模型注册到 metadata
 
@@ -14,8 +16,11 @@ import app.models  # noqa: F401  确保模型注册到 metadata
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_columns(engine)
     db = SessionLocal()
     try:
+        seed_permissions(db)
+        seed_default_roles(db)
         user_crud.ensure_bootstrap_admin(db)
     finally:
         db.close()
@@ -24,7 +29,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.3.1",
+    version="0.4.0",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -40,6 +45,8 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(oidc.router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
+app.include_router(records.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/api/health", tags=["系统"], summary="健康检查")

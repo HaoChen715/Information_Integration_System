@@ -28,6 +28,18 @@ const form = ref({
 const saving = ref(false)
 const message = ref('')
 
+const showCreate = ref(false)
+const creating = ref(false)
+const createMsg = ref('')
+const createForm = ref({
+  username: '',
+  password: '',
+  full_name: '',
+  department: '',
+  roles: [] as string[],
+  is_active: true,
+})
+
 const canEditProfile = computed(() => auth.isAdmin)
 const disabledResources = computed(() => (auth.isAdmin ? [] : ['user', 'role']))
 
@@ -76,6 +88,58 @@ function roleDisabled(role: Role) {
   return false
 }
 
+function startCreate() {
+  createMsg.value = ''
+  createForm.value = {
+    username: '',
+    password: '',
+    full_name: '',
+    department: auth.isAdmin ? '' : auth.user?.department || '',
+    roles: [],
+    is_active: true,
+  }
+  showCreate.value = true
+}
+
+function toggleCreateRole(code: string, checked: boolean) {
+  const set = new Set(createForm.value.roles)
+  if (checked) set.add(code)
+  else set.delete(code)
+  createForm.value.roles = [...set]
+}
+
+async function submitCreate() {
+  creating.value = true
+  createMsg.value = ''
+  try {
+    await adminApi.createUser({
+      username: createForm.value.username.trim(),
+      password: createForm.value.password,
+      full_name: createForm.value.full_name,
+      department: createForm.value.department || null,
+      roles: createForm.value.roles,
+      is_active: createForm.value.is_active,
+    })
+    showCreate.value = false
+    await loadAll()
+  } catch (err: unknown) {
+    createMsg.value =
+      (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '创建失败'
+  } finally {
+    creating.value = false
+  }
+}
+
+async function removeUser(user: AdminUser) {
+  if (!confirm(`确认删除用户「${user.username}」?此操作不可恢复。`)) return
+  try {
+    await adminApi.deleteUser(user.id)
+    await loadAll()
+  } catch (err: unknown) {
+    alert((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '删除失败')
+  }
+}
+
 async function save() {
   const user = editing.value
   if (!user) return
@@ -113,10 +177,20 @@ onMounted(loadAll)
 
 <template>
   <AppLayout>
-    <h1 class="text-2xl font-bold text-slate-800">用户管理</h1>
-    <p class="mt-1 text-sm text-slate-500">
-      {{ auth.isAdmin ? '为用户分配角色与页面权限,并设置数据范围。' : '管理本部门员工的角色与权限。' }}
-    </p>
+    <div class="flex items-start justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">用户管理</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          {{ auth.isAdmin ? '为用户分配角色与页面权限,并设置数据范围。' : '管理本部门员工的角色与权限。' }}
+        </p>
+      </div>
+      <button
+        class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
+        @click="startCreate"
+      >
+        新增用户
+      </button>
+    </div>
 
     <div v-if="auth.isAdmin" class="mt-4 flex flex-wrap gap-4 text-sm">
       <span class="rounded-lg bg-white px-3 py-1.5 text-slate-600 ring-1 ring-slate-200">
@@ -164,7 +238,14 @@ onMounted(loadAll)
             </td>
             <td class="px-5 py-3 text-slate-500">{{ Object.keys(u.permissions).length }}</td>
             <td class="px-5 py-3">
-              <button class="text-indigo-600 hover:underline" @click="openEdit(u)">编辑</button>
+              <button class="mr-3 text-indigo-600 hover:underline" @click="openEdit(u)">编辑</button>
+              <button
+                v-if="u.id !== auth.user?.id"
+                class="text-red-500 hover:underline"
+                @click="removeUser(u)"
+              >
+                删除
+              </button>
             </td>
           </tr>
         </tbody>
@@ -267,6 +348,85 @@ onMounted(loadAll)
               {{ saving ? '保存中...' : '保存' }}
             </button>
             <span v-if="message" class="text-sm text-slate-500">{{ message }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 新增用户弹层 -->
+    <div
+      v-if="showCreate"
+      class="fixed inset-0 z-50 flex justify-end bg-slate-900/40"
+      @click.self="showCreate = false"
+    >
+      <div class="h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold text-slate-800">新增用户</h2>
+          <button class="text-slate-400 hover:text-slate-600" @click="showCreate = false">✕</button>
+        </div>
+
+        <div class="mt-5 space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-sm text-slate-600">用户名 *</span>
+              <input v-model="createForm.username" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-sm text-slate-600">初始密码 *</span>
+              <input v-model="createForm.password" type="password" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="mb-1 block text-sm text-slate-600">姓名</span>
+              <input v-model="createForm.full_name" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </label>
+            <label class="block">
+              <span class="mb-1 block text-sm text-slate-600">部门</span>
+              <select
+                v-model="createForm.department"
+                :disabled="!auth.isAdmin"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+              >
+                <option value="">未设置</option>
+                <option v-for="d in departments" :key="d.id" :value="d.name">{{ d.name }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="flex items-center gap-2 text-sm text-slate-600">
+            <input v-model="createForm.is_active" type="checkbox" class="h-4 w-4 accent-indigo-500" />启用账号
+          </label>
+
+          <div>
+            <p class="mb-2 text-sm font-semibold text-slate-700">角色</p>
+            <div class="flex flex-wrap gap-3">
+              <label
+                v-for="role in roles"
+                :key="role.id"
+                class="flex items-center gap-2 text-sm"
+                :class="roleDisabled(role) ? 'text-slate-300' : 'text-slate-600'"
+              >
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 accent-indigo-500"
+                  :disabled="roleDisabled(role)"
+                  :checked="createForm.roles.includes(role.code)"
+                  @change="toggleCreateRole(role.code, ($event.target as HTMLInputElement).checked)"
+                />
+                {{ role.name }}
+              </label>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button
+              class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50"
+              :disabled="creating || !createForm.username || !createForm.password"
+              @click="submitCreate"
+            >
+              {{ creating ? '创建中...' : '创建' }}
+            </button>
+            <span v-if="createMsg" class="text-sm text-red-500">{{ createMsg }}</span>
           </div>
         </div>
       </div>

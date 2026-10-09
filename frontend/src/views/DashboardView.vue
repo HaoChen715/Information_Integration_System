@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 
 import AppLayout from '../components/AppLayout.vue'
 import UserAvatar from '../components/UserAvatar.vue'
-import { fetchOnlineUsers, fetchStats } from '../api/admin'
+import { fetchDepartmentMembers, fetchOnlineUsers, fetchStats } from '../api/admin'
 import type { OnlineUser, UserStats } from '../api/admin'
 import { removeAvatar, uploadAvatar } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
@@ -16,6 +16,7 @@ const stats = ref<UserStats | null>(null)
 const onlineUsers = ref<OnlineUser[]>([])
 const showOnline = ref(false)
 const loadingOnline = ref(false)
+const deptMemberCount = ref(0)
 const fileInput = ref<HTMLInputElement | null>(null)
 const avatarMsg = ref('')
 const uploading = ref(false)
@@ -33,6 +34,13 @@ onMounted(async () => {
   if (auth.isAdmin) {
     try {
       stats.value = await fetchStats()
+    } catch {
+      /* 忽略 */
+    }
+  }
+  if (auth.canManageUsers || auth.user?.department) {
+    try {
+      deptMemberCount.value = (await fetchDepartmentMembers()).length
     } catch {
       /* 忽略 */
     }
@@ -161,15 +169,18 @@ async function removeAv() {
       <div class="rounded-2xl border border-slate-200 bg-white p-5">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">角色</p>
         <div class="mt-2 flex flex-wrap gap-1.5">
-          <template v-if="auth.user?.roles.length">
+          <template v-if="auth.user?.role_names.length">
             <span
-              v-for="role in auth.user.roles"
+              v-for="role in auth.user.role_names"
               :key="role"
               class="rounded-md bg-indigo-50 px-2 py-0.5 text-sm font-medium text-indigo-600"
             >
               {{ role }}
             </span>
           </template>
+          <span v-else-if="auth.isSuperuser" class="rounded-md bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-600">
+            超级管理员
+          </span>
           <span v-else class="text-lg font-semibold text-slate-800">—</span>
         </div>
       </div>
@@ -231,6 +242,32 @@ async function removeAv() {
       </div>
     </div>
 
+    <div
+      v-else-if="auth.canManageUsers"
+      class="mt-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div>
+        <p class="font-semibold text-slate-800">本部门员工管理</p>
+        <p class="mt-0.5 text-xs text-slate-400">
+          {{ auth.user?.department || '未设置部门' }} · 共 {{ deptMemberCount }} 人
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <RouterLink
+          to="/department"
+          class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+        >
+          部门空间
+        </RouterLink>
+        <RouterLink
+          to="/admin/users"
+          class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-600"
+        >
+          用户管理 →
+        </RouterLink>
+      </div>
+    </div>
+
     <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
       <p class="text-sm font-semibold text-slate-700">我的权限</p>
       <div class="mt-3 flex flex-wrap gap-2">
@@ -239,7 +276,7 @@ async function removeAv() {
           :key="code"
           class="rounded-md border border-slate-200 px-2 py-0.5 text-xs text-slate-600"
         >
-          {{ code }}
+          {{ auth.user?.permission_labels?.[code] || code }}
           <span class="ml-1 text-slate-400">{{
             scope === 'all' ? '全部' : scope === 'dept' ? '本部门' : '仅本人'
           }}</span>

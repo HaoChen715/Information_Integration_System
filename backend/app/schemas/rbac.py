@@ -106,6 +106,28 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class UserCreateAdmin(BaseModel):
+    username: str
+    password: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    department: Optional[str] = None
+    roles: list[str] = []
+    is_active: bool = True
+
+
+class DepartmentMemberOut(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    department: Optional[str] = None
+    avatar_url: Optional[str] = None
+    roles: list[str] = []
+    role_names: list[str] = []
+    is_active: bool
+    last_seen_at: Optional[UTCDatetime] = None
+
+
 class UserRolesUpdate(BaseModel):
     roles: list[str]
 

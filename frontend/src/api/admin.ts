@@ -99,6 +99,42 @@ export async function fetchStats(): Promise<UserStats> {
   return data
 }
 
+export interface UserCreatePayload {
+  username: string
+  password: string
+  full_name?: string | null
+  email?: string | null
+  department?: string | null
+  roles: string[]
+  is_active: boolean
+}
+
+export async function createUser(payload: UserCreatePayload): Promise<AdminUser> {
+  const { data } = await client.post<AdminUser>('/admin/users', payload)
+  return data
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await client.delete(`/admin/users/${id}`)
+}
+
+export interface DepartmentMember {
+  id: number
+  username: string
+  full_name: string | null
+  department: string | null
+  avatar_url: string | null
+  roles: string[]
+  role_names: string[]
+  is_active: boolean
+  last_seen_at: string | null
+}
+
+export async function fetchDepartmentMembers(): Promise<DepartmentMember[]> {
+  const { data } = await client.get<DepartmentMember[]>('/departments/me/members')
+  return data
+}
+
 export interface OnlineUser {
   id: number
   username: string

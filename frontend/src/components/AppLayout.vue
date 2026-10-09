@@ -9,7 +9,10 @@ const auth = useAuthStore()
 const router = useRouter()
 
 const navItems = computed(() => {
-  const items: { to: string; label: string }[] = [{ to: '/', label: '主页' }]
+  const items: { to: string; label: string }[] = [
+    { to: '/', label: '主页' },
+    { to: '/department', label: '部门' },
+  ]
   if (auth.hasPermission('record:view')) items.push({ to: '/records', label: '资料' })
   if (auth.canManageUsers) items.push({ to: '/admin/users', label: '用户管理' })
   if (auth.isAdmin) {

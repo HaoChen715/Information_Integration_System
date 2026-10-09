@@ -17,7 +17,9 @@ export interface CurrentUser {
   auth_source: string
   department: string | null
   roles: string[]
+  role_names: string[]
   permissions: Record<string, string>
+  permission_labels: Record<string, string>
   avatar_url: string | null
   created_at: string
   last_login_at: string | null

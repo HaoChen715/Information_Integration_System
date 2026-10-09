@@ -29,6 +29,8 @@ class UserPublic(UserBase):
     created_at: UTCDatetime
     last_login_at: Optional[UTCDatetime] = None
     roles: list[str] = Field(default_factory=list, validation_alias=AliasChoices("role_codes"))
+    role_names: list[str] = Field(default_factory=list)
     permissions: dict[str, str] = Field(default_factory=dict)
+    permission_labels: dict[str, str] = Field(default_factory=dict)
     avatar_url: Optional[str] = None
 

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -18,6 +19,7 @@ from app.core.permissions import (
     management_scope,
 )
 from app.crud import rbac as rbac_crud
+from app.crud import user as user_crud
 from app.db.session import get_db
 from app.models.department import Department
 from app.models.permission import Permission
@@ -34,10 +36,12 @@ from app.schemas.rbac import (
     RoleOut,
     RoleUpdate,
     UserAdminOut,
+    UserCreateAdmin,
     UserPermissionsUpdate,
     UserRolesUpdate,
     UserUpdate,
 )
+from app.schemas.user import UserCreate
 
 router = APIRouter(prefix="/admin", tags=["权限管理"])
 
@@ -314,22 +318,90 @@ def list_users(
     return [_user_out(db, u) for u in db.execute(stmt).scalars()]
 
 
+@router.post("/users", response_model=UserAdminOut, summary="新增用户")
+def create_user_route(
+    payload: UserCreateAdmin,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_manager),
+) -> UserAdminOut:
+    scope = management_scope(current)
+    if user_crud.get_by_username(db, payload.username):
+        raise HTTPException(status_code=400, detail="用户名已存在")
+
+    department = payload.department
+    if scope == "dept":
+        department = current.department  # 主管只能在本部门新增
+
+    target_roles = list(
+        db.execute(select(Role).where(Role.code.in_(payload.roles))).scalars()
+    )
+    for role in target_roles:
+        if role.is_admin and not current.is_superuser:
+            raise HTTPException(status_code=403, detail="仅超级管理员可授予管理员角色")
+        if scope == "dept" and role.is_department_manager:
+            raise HTTPException(status_code=403, detail="主管不能授予主管角色")
+
+    try:
+        user = user_crud.create_user(
+            db,
+            UserCreate(
+                username=payload.username,
+                password=payload.password,
+                email=payload.email,
+                full_name=payload.full_name,
+            ),
+        )
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="用户名或邮箱已被占用")
+
+    user.department = department
+    user.is_active = payload.is_active
+    db.commit()
+    rbac_crud.assign_user_roles(db, user, payload.roles)
+    db.refresh(user)
+    return _user_out(db, user)
+
+
+@router.delete("/users/{user_id}", summary="删除用户")
+def delete_user_route(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_manager),
+) -> dict:
+    user = rbac_crud.get_user(db, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if user.id == current.id:
+        raise HTTPException(status_code=400, detail="不能删除自己")
+    _assert_can_manage(current, user)
+    if user.is_superuser or (rbac_crud_is_admin(user) and not current.is_superuser):
+        raise HTTPException(status_code=403, detail="无权删除该账号")
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
+
+
 @router.put("/users/{user_id}", response_model=UserAdminOut, summary="更新用户信息")
 def update_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin),
+    current: User = Depends(get_current_manager),
 ) -> UserAdminOut:
     user = rbac_crud.get_user(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="用户不存在")
+    scope = _assert_can_manage(current, user)
+
     if payload.full_name is not None:
         user.full_name = payload.full_name
-    if payload.department is not None:
-        user.department = payload.department
     if payload.is_active is not None:
         user.is_active = payload.is_active
+    if payload.department is not None:
+        if scope == "dept" and payload.department != current.department:
+            raise HTTPException(status_code=403, detail="主管不能修改部门归属")
+        user.department = payload.department
     db.commit()
     db.refresh(user)
     return _user_out(db, user)

@@ -27,3 +27,15 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
   const { data } = await client.get<CurrentUser>('/auth/me')
   return data
 }
+
+export interface AuthMethods {
+  local: boolean
+  ldap: boolean
+  oidc: boolean
+  oidc_login_url: string | null
+}
+
+export async function fetchAuthMethods(): Promise<AuthMethods> {
+  const { data } = await client.get<AuthMethods>('/auth/methods')
+  return data
+}

@@ -1,0 +1,36 @@
+# 测试用 Dex OIDC 身份平台(仅本地联调,切勿用于生产)
+issuer: http://127.0.0.1:5556/dex
+
+storage:
+  type: memory
+
+# 受信任的第一方应用,跳过授权确认页
+skipApprovalScreen: true
+
+web:
+  http: 0.0.0.0:5556
+
+staticClients:
+  - id: iis-web
+    secret: iis-test-secret
+    name: IIS
+    redirectURIs:
+      - http://127.0.0.1:8000/api/auth/oidc/callback
+      - http://127.0.0.1:8080/api/auth/oidc/callback
+
+enablePasswordDB: true
+
+staticPasswords:
+  # 密码: password
+  - email: admin@example.com
+    hash: "$2a$10$DzDmon2EggziQjyif1DJHu0HvfsnewZkrojj4d3FhXGXFxPRTqGSW"
+    username: admin
+    userID: "1"
+    groups:
+      - iis-admins
+  - email: user@example.com
+    hash: "$2a$10$DzDmon2EggziQjyif1DJHu0HvfsnewZkrojj4d3FhXGXFxPRTqGSW"
+    username: normaluser
+    userID: "2"
+    groups:
+      - others

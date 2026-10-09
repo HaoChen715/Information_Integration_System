@@ -1,6 +1,7 @@
 from typing import Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -73,30 +74,40 @@ def match_roles(groups: list[str], group_role_map: dict[str, str]) -> list[str]:
     return [code for group, code in group_role_map.items() if group.lower() in keys]
 
 
-def upsert_ad_user(
+def upsert_external_user(
     db: Session,
     identity: AuthIdentity,
     group_role_map: dict[str, str],
 ) -> User:
-    """AD 用户 JIT 开通 / 信息与角色同步。"""
+    """外部认证源(AD/OIDC)用户 JIT 开通,并同步信息与角色。"""
     user = get_by_username(db, identity.username)
     if user is None:
         user = User(
             username=identity.username,
-            auth_source="ad",
-            hashed_password="",  # AD 账号不使用本地密码
+            auth_source=identity.auth_source,
+            hashed_password="",  # 外部账号不使用本地密码
             is_active=True,
         )
         db.add(user)
-    elif user.auth_source != "ad":
-        raise AuthError("该账号已存在且为本地账号,请联系管理员", 409)
+    elif user.auth_source != identity.auth_source:
+        raise AuthError("该账号已存在且来源不同,请联系管理员", 409)
 
-    user.email = identity.email or user.email
     user.full_name = identity.full_name or user.full_name
+    # 邮箱唯一:若已被其它账号占用则跳过,避免唯一约束冲突
+    if identity.email:
+        conflict = db.execute(
+            select(User).where(User.email == identity.email, User.username != identity.username)
+        ).scalar_one_or_none()
+        if conflict is None:
+            user.email = identity.email
 
     role_codes = match_roles(identity.groups, group_role_map)
     user.roles = [get_or_create_role(db, code) for code in role_codes]
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise AuthError("账号信息与已有用户冲突,请联系管理员", 409)
     db.refresh(user)
     return user

@@ -2,7 +2,7 @@ name: iis
 
 services:
   backend:
-    image: iis-backend:${TAG:-0.2.1}
+    image: iis-backend:${TAG:-0.3.1}
     build:
       context: ../..
       dockerfile: deploy/app/backend.Dockerfile
@@ -13,6 +13,9 @@ services:
       - DATABASE_URL=sqlite:////app/data/app.db
     volumes:
       - backend_data:/app/data
+      # 内网 CA 自签:将 CA 证书放到本目录 ./certs/ca.pem,取消下一行注释,
+      # 并在 .env 中设置 OIDC_CA_CERT=/certs/ca.pem
+      # - ./certs/ca.pem:/certs/ca.pem:ro
     expose:
       - "8000"
     restart: unless-stopped
@@ -28,7 +31,7 @@ services:
       start_period: 10s
 
   frontend:
-    image: iis-frontend:${TAG:-0.2.1}
+    image: iis-frontend:${TAG:-0.3.1}
     build:
       context: ../..
       dockerfile: deploy/app/frontend.Dockerfile

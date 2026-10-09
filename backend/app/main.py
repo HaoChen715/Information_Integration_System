@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth
+from app.api.routes import auth, oidc
 from app.core.config import settings
 from app.crud import user as user_crud
 from app.db.base import Base
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.2.0",
+    version="0.3.1",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -39,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(oidc.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/api/health", tags=["系统"], summary="健康检查")

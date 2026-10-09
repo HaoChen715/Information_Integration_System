@@ -25,11 +25,27 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.fetchCurrentUser()
   }
 
+  async function acceptToken(newToken: string): Promise<void> {
+    setToken(newToken)
+    token.value = newToken
+    await loadUser()
+  }
+
   function logout(): void {
     clearToken()
     token.value = null
     user.value = null
   }
 
-  return { user, token, loading, isAuthenticated, displayName, login, loadUser, logout }
+  return {
+    user,
+    token,
+    loading,
+    isAuthenticated,
+    displayName,
+    login,
+    loadUser,
+    acceptToken,
+    logout,
+  }
 })

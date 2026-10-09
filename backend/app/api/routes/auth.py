@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.user import User
@@ -57,3 +58,15 @@ def login_form(
 @router.get("/me", response_model=UserPublic, summary="获取当前登录用户")
 def read_me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.get("/methods", summary="可用的登录方式")
+def auth_methods() -> dict:
+    return {
+        "local": "local" in settings.AUTH_BACKENDS,
+        "ldap": settings.LDAP_ENABLED and "ldap" in settings.AUTH_BACKENDS,
+        "oidc": settings.OIDC_ENABLED,
+        "oidc_login_url": f"{settings.API_V1_PREFIX}/auth/oidc/login"
+        if settings.OIDC_ENABLED
+        else None,
+    }

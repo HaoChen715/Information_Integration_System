@@ -32,8 +32,28 @@ class Settings(BaseSettings):
     LDAP_BASE_DN: str = ""
     LDAP_CONNECT_TIMEOUT: int = 5
     LDAP_AUTO_PROVISION: bool = True
+    LDAP_USE_STARTTLS: bool = False  # ldap:// + StartTLS
+    LDAP_TLS_INSECURE: bool = False  # 跳过证书校验(仅测试)
+    LDAP_CA_CERT: Optional[str] = None  # 内网 CA 证书路径
     # AD 组 DN(或组 CN) -> 本地角色 code
     LDAP_GROUP_ROLE_MAP: dict[str, str] = {}
+
+    # ---- OIDC 统一身份认证 ----
+    OIDC_ENABLED: bool = False
+    OIDC_ISSUER: str = ""
+    OIDC_CLIENT_ID: str = ""
+    OIDC_CLIENT_SECRET: str = ""  # 机密客户端才需要
+    OIDC_SCOPES: str = "openid profile email groups"
+    OIDC_REDIRECT_URI: str = ""  # 后端回调地址,须与 IdP 注册一致
+    OIDC_POST_LOGIN_REDIRECT: str = "/oidc-callback"  # 前端接收 token 的路由
+    OIDC_USERNAME_CLAIM: str = "preferred_username"
+    OIDC_NAME_CLAIM: str = "name"
+    OIDC_EMAIL_CLAIM: str = "email"
+    OIDC_GROUPS_CLAIM: str = "groups"
+    OIDC_GROUP_ROLE_MAP: dict[str, str] = {}
+    OIDC_VERIFY_SSL: bool = True
+    OIDC_CA_CERT: Optional[str] = None  # 内网 CA 证书路径(优先于 VERIFY_SSL)
+    OIDC_COOKIE_SECURE: bool = False
 
     # ---- 首次启动引导管理员(可选,仅当该用户不存在时创建) ----
     BOOTSTRAP_ADMIN_USERNAME: Optional[str] = None

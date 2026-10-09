@@ -1,0 +1,10 @@
+services:
+  dex:
+    image: dexidp/dex:latest
+    container_name: test-dex
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    volumes:
+      - ./config.yaml:/etc/dex/config.yaml:ro
+    ports:
+      - "5556:5556"
+    restart: unless-stopped

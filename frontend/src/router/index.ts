@@ -12,6 +12,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/oidc-callback',
+      name: 'oidc-callback',
+      component: () => import('../views/OidcCallbackView.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/',
       name: 'dashboard',
       component: () => import('../views/DashboardView.vue'),

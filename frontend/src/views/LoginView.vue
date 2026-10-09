@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { fetchAuthMethods } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -13,6 +14,15 @@ const password = ref('')
 const showPassword = ref(false)
 const submitting = ref(false)
 const error = ref('')
+
+// OIDC 统一身份认证入口(由后端 /auth/methods 决定是否展示)
+const oidc = ref<{ enabled: boolean; url: string | null }>({ enabled: false, url: null })
+
+function goOidc() {
+  if (!oidc.value.url) return
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+  window.location.href = `${oidc.value.url}?next=${encodeURIComponent(redirect)}`
+}
 
 const canSubmit = computed(
   () => username.value.trim().length > 0 && password.value.length > 0 && !submitting.value,
@@ -98,6 +108,12 @@ function resolvePerfLite(): boolean {
 const perfLite = ref(resolvePerfLite())
 
 onMounted(() => {
+  fetchAuthMethods()
+    .then((m) => {
+      oidc.value = { enabled: m.oidc, url: m.oidc_login_url }
+    })
+    .catch(() => {})
+
   if (perfLite.value) return
   particles.value = buildParticles(18)
   window.addEventListener('pointermove', onPointerMove, { passive: true })
@@ -217,7 +233,25 @@ async function handleSubmit() {
         <h2 class="anim d1 text-2xl font-bold text-white">欢迎回来</h2>
         <p class="anim d2 mt-1 text-sm text-slate-400">请使用您的账号登录系统</p>
 
-        <form class="mt-8 space-y-5" @submit.prevent="handleSubmit">
+        <div v-if="oidc.enabled" class="anim d2 mt-6">
+          <button
+            type="button"
+            class="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-semibold text-white transition hover:bg-white/10"
+            @click="goOidc"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z" />
+            </svg>
+            使用统一身份认证登录
+          </button>
+          <div class="mt-5 flex items-center gap-3 text-xs text-slate-500">
+            <span class="h-px flex-1 bg-white/10" />
+            或使用本地账号
+            <span class="h-px flex-1 bg-white/10" />
+          </div>
+        </div>
+
+        <form :class="oidc.enabled ? 'mt-5' : 'mt-8'" class="space-y-5" @submit.prevent="handleSubmit">
           <div class="anim d2">
             <label for="username" class="mb-1.5 block text-sm font-medium text-slate-300">
               账号

@@ -37,6 +37,6 @@ def authenticate(db: Session, username: str, password: str) -> Optional[User]:
         # AD 身份 -> JIT 开通并同步角色
         if not settings.LDAP_AUTO_PROVISION:
             raise AuthError("账号未开通,请联系管理员", 403)
-        return user_crud.upsert_ad_user(db, result, settings.LDAP_GROUP_ROLE_MAP)
+        return user_crud.upsert_external_user(db, result, settings.LDAP_GROUP_ROLE_MAP)
 
     return None

@@ -22,7 +22,7 @@
 
 ```bash
 # ① 加载镜像
-docker load -i images/iis-images-0.2.1.tar
+docker load -i images/iis-images-0.3.1.tar
 
 # ② 准备配置
 cp .env.example .env
@@ -54,6 +54,14 @@ docker compose -f docker-compose.deploy.yml ps
 | `LDAP_BIND_DN` / `LDAP_BIND_PASSWORD` | 用于搜索的服务账号 |
 | `LDAP_BASE_DN` | 域根,如 `DC=corp,DC=com` |
 | `LDAP_GROUP_ROLE_MAP` | AD 组 → 本地角色映射,JSON 格式 |
+| `OIDC_ENABLED` | 是否启用统一身份认证(OIDC) |
+| `OIDC_ISSUER` | 身份平台 issuer,如 `https://platform.liangkui.co/platform/idp` |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | 客户端凭据(机密客户端需 secret) |
+| `OIDC_REDIRECT_URI` | 后端回调地址,**须与身份平台注册完全一致** |
+| `OIDC_POST_LOGIN_REDIRECT` | 登录成功后前端接收 token 的地址 |
+| `OIDC_GROUP_ROLE_MAP` | token 组 claim → 本地角色映射,JSON 格式 |
+
+> **OIDC 配置要点**:① 在身份平台为该应用注册客户端,`redirect URI` 填 `http://<本系统地址>/api/auth/oidc/callback`;② 若平台使用内网自签证书,把根 CA 放到本目录 `certs/ca.pem`,取消 compose 中的证书挂载注释,并设 `OIDC_CA_CERT=/certs/ca.pem`(仅临时排查可设 `OIDC_VERIFY_SSL=false`,不安全);③ `OIDC_USERNAME_CLAIM` 按平台实际情况填(常见 `preferred_username` / `email` / `sub`)。
 
 生成随机密钥示例:
 

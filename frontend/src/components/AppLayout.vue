@@ -3,18 +3,21 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import UserAvatar from './UserAvatar.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 
-const navItems = computed(() =>
-  [
-    { to: '/', label: '主页', perm: '' },
-    { to: '/records', label: '资料', perm: 'record:view' },
-    { to: '/admin/users', label: '用户管理', perm: 'user:view' },
-    { to: '/admin/roles', label: '角色管理', perm: 'role:view' },
-  ].filter((item) => !item.perm || auth.hasPermission(item.perm)),
-)
+const navItems = computed(() => {
+  const items: { to: string; label: string }[] = [{ to: '/', label: '主页' }]
+  if (auth.hasPermission('record:view')) items.push({ to: '/records', label: '资料' })
+  if (auth.canManageUsers) items.push({ to: '/admin/users', label: '用户管理' })
+  if (auth.isAdmin) {
+    items.push({ to: '/admin/roles', label: '角色管理' })
+    items.push({ to: '/admin/departments', label: '部门管理' })
+  }
+  return items
+})
 
 function handleLogout() {
   auth.logout()
@@ -49,12 +52,20 @@ function handleLogout() {
         </div>
 
         <div class="flex items-center gap-4">
-          <div class="text-right">
-            <p class="text-sm font-medium text-slate-700">{{ auth.displayName }}</p>
-            <p class="text-xs text-slate-400">
-              {{ auth.isSuperuser ? '超级管理员' : auth.isAdmin ? '管理员' : '用户' }} ·
-              {{ auth.user?.auth_source === 'ad' ? 'AD 域' : auth.user?.auth_source === 'oidc' ? '统一认证' : '本地' }}
-            </p>
+          <div class="flex items-center gap-3">
+            <UserAvatar
+              :src="auth.user?.avatar_url"
+              :name="auth.user?.full_name"
+              :username="auth.user?.username"
+              :size="36"
+            />
+            <div class="text-right">
+              <p class="text-sm font-medium text-slate-700">{{ auth.displayName }}</p>
+              <p class="text-xs text-slate-400">
+                {{ auth.isSuperuser ? '超级管理员' : auth.isAdmin ? '管理员' : '用户' }} ·
+                {{ auth.user?.auth_source === 'ad' ? 'AD 域' : auth.user?.auth_source === 'oidc' ? '统一认证' : '本地' }}
+              </p>
+            </div>
           </div>
           <button
             class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"

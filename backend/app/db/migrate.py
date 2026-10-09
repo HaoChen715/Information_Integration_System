@@ -7,8 +7,11 @@ from sqlalchemy.engine import Engine
 _ADDED_COLUMNS = [
     ("users", "department", "VARCHAR(128)"),
     ("users", "last_seen_at", "DATETIME"),
+    ("users", "avatar_ext", "VARCHAR(8)"),
+    ("users", "avatar_updated_at", "DATETIME"),
     ("roles", "is_system", "BOOLEAN NOT NULL DEFAULT 0"),
     ("roles", "is_admin", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("roles", "is_department_manager", "BOOLEAN NOT NULL DEFAULT 0"),
 ]
 
 

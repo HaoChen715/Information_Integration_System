@@ -13,10 +13,12 @@ export interface CurrentUser {
   is_active: boolean
   is_superuser: boolean
   is_admin: boolean
+  manage_scope: string | null
   auth_source: string
   department: string | null
   roles: string[]
   permissions: Record<string, string>
+  avatar_url: string | null
   created_at: string
   last_login_at: string | null
 }
@@ -40,5 +42,17 @@ export interface AuthMethods {
 
 export async function fetchAuthMethods(): Promise<AuthMethods> {
   const { data } = await client.get<AuthMethods>('/auth/methods')
+  return data
+}
+
+export async function uploadAvatar(file: File): Promise<CurrentUser> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await client.post<CurrentUser>('/users/me/avatar', form)
+  return data
+}
+
+export async function removeAvatar(): Promise<CurrentUser> {
+  const { data } = await client.delete<CurrentUser>('/users/me/avatar')
   return data
 }

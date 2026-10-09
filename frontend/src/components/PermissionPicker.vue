@@ -5,6 +5,7 @@ const props = defineProps<{
   groups: PermissionGroup[]
   modelValue: Record<string, string>
   disabled?: boolean
+  disabledResources?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +17,12 @@ const scopeOptions = [
   { value: 'dept', label: '本部门' },
   { value: 'all', label: '全部' },
 ]
+
+function isDisabled(resource: string, permDisabled?: boolean): boolean {
+  if (props.disabled || permDisabled) return true
+  if (props.disabledResources?.includes(resource)) return true
+  return false
+}
 
 function toggle(code: string, checked: boolean) {
   const next = { ...props.modelValue }
@@ -41,11 +48,11 @@ function setScope(code: string, scope: string) {
           v-for="perm in group.permissions"
           :key="perm.code"
           class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-          :class="disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
+          :class="isDisabled(group.resource) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
         >
           <input
             type="checkbox"
-            :disabled="disabled"
+            :disabled="isDisabled(group.resource)"
             :checked="perm.code in modelValue"
             class="h-4 w-4 accent-indigo-500"
             @change="toggle(perm.code, ($event.target as HTMLInputElement).checked)"
@@ -54,7 +61,7 @@ function setScope(code: string, scope: string) {
           <select
             v-if="perm.code in modelValue"
             :value="modelValue[perm.code]"
-            :disabled="disabled"
+            :disabled="isDisabled(group.resource)"
             class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600"
             @change="setScope(perm.code, ($event.target as HTMLSelectElement).value)"
           >

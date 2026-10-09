@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, auth, oidc, records
+from app.api.routes import admin, auth, oidc, records, users
+from app.core.avatars import avatar_dir
 from app.core.config import settings
 from app.core.permissions import seed_default_roles, seed_permissions
 from app.crud import user as user_crud
@@ -17,6 +18,7 @@ import app.models  # noqa: F401  确保模型注册到 metadata
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_columns(engine)
+    avatar_dir()
     db = SessionLocal()
     try:
         seed_permissions(db)
@@ -29,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -47,6 +49,7 @@ app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(oidc.router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin.router, prefix=settings.API_V1_PREFIX)
 app.include_router(records.router, prefix=settings.API_V1_PREFIX)
+app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/api/health", tags=["系统"], summary="健康检查")

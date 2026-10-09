@@ -23,10 +23,12 @@ class UserPublic(UserBase):
     is_active: bool
     is_superuser: bool
     is_admin: bool = False
+    manage_scope: Optional[str] = None  # all / dept / None
     auth_source: str = "local"
     department: Optional[str] = None
     created_at: UTCDatetime
     last_login_at: Optional[UTCDatetime] = None
     roles: list[str] = Field(default_factory=list, validation_alias=AliasChoices("role_codes"))
     permissions: dict[str, str] = Field(default_factory=dict)
+    avatar_url: Optional[str] = None
 

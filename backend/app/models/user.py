@@ -37,6 +37,10 @@ class User(Base):
     # 最近活跃时间:用于统计在线用户
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
+    # 头像文件扩展名(png/jpg/webp);为空表示使用首字母头像
+    avatar_ext: Mapped[Optional[str]] = mapped_column(String(8))
+    avatar_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
     roles: Mapped[list["Role"]] = relationship(secondary=user_roles, back_populates="users")
     permission_links: Mapped[list["UserPermission"]] = relationship(
         cascade="all, delete-orphan"

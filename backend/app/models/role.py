@@ -29,6 +29,10 @@ class Role(Base):
     is_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # 管理员角色:仅超级管理员可授予
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # 部门主管角色:可管理本部门员工的权限
+    is_department_manager: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     users: Mapped[list["User"]] = relationship(secondary=user_roles, back_populates="roles")
     permission_links: Mapped[list["RolePermission"]] = relationship(

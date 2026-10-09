@@ -15,6 +15,8 @@ export const useAuthStore = defineStore('auth', () => {
   const permissions = computed<Record<string, string>>(() => user.value?.permissions ?? {})
   const isAdmin = computed(() => Boolean(user.value?.is_admin || user.value?.is_superuser))
   const isSuperuser = computed(() => Boolean(user.value?.is_superuser))
+  const manageScope = computed(() => user.value?.manage_scope ?? null)
+  const canManageUsers = computed(() => Boolean(manageScope.value))
 
   function hasPermission(code: string): boolean {
     if (user.value?.is_superuser) return true
@@ -58,6 +60,8 @@ export const useAuthStore = defineStore('auth', () => {
     permissions,
     isAdmin,
     isSuperuser,
+    manageScope,
+    canManageUsers,
     hasPermission,
     scopeOf,
     login,

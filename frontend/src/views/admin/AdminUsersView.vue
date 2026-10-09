@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import AppLayout from '../../components/AppLayout.vue'
 import PermissionPicker from '../../components/PermissionPicker.vue'
+import UserAvatar from '../../components/UserAvatar.vue'
 import * as adminApi from '../../api/admin'
-import type { AdminUser, PermissionGroup, Role, UserStats } from '../../api/admin'
+import type { AdminUser, Department, PermissionGroup, Role, UserStats } from '../../api/admin'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -12,6 +13,7 @@ const auth = useAuthStore()
 const users = ref<AdminUser[]>([])
 const roles = ref<Role[]>([])
 const groups = ref<PermissionGroup[]>([])
+const departments = ref<Department[]>([])
 const stats = ref<UserStats | null>(null)
 
 const editing = ref<AdminUser | null>(null)
@@ -26,17 +28,20 @@ const form = ref({
 const saving = ref(false)
 const message = ref('')
 
+const canEditProfile = computed(() => auth.isAdmin)
+const disabledResources = computed(() => (auth.isAdmin ? [] : ['user', 'role']))
+
 async function loadAll() {
-  const [u, r, g, s] = await Promise.all([
-    adminApi.fetchAdminUsers(),
-    adminApi.fetchRoles(),
-    adminApi.fetchPermissions(),
-    adminApi.fetchStats(),
-  ])
-  users.value = u
-  roles.value = r
-  groups.value = g
-  stats.value = s
+  const tasks: Promise<unknown>[] = [
+    adminApi.fetchAdminUsers().then((v) => (users.value = v)),
+    adminApi.fetchRoles().then((v) => (roles.value = v)),
+    adminApi.fetchPermissions().then((v) => (groups.value = v)),
+    adminApi.fetchDepartments().then((v) => (departments.value = v)),
+  ]
+  if (auth.isAdmin) {
+    tasks.push(adminApi.fetchStats().then((v) => (stats.value = v)).catch(() => {}))
+  }
+  await Promise.all(tasks)
 }
 
 function openEdit(user: AdminUser) {
@@ -66,7 +71,9 @@ function toggleRole(code: string, checked: boolean) {
 }
 
 function roleDisabled(role: Role) {
-  return role.is_admin && !auth.isSuperuser
+  if (role.is_admin) return !auth.isSuperuser
+  if (role.is_department_manager) return !auth.isAdmin
+  return false
 }
 
 async function save() {
@@ -75,11 +82,13 @@ async function save() {
   saving.value = true
   message.value = ''
   try {
-    await adminApi.updateUser(user.id, {
-      full_name: form.value.full_name,
-      department: form.value.department,
-      is_active: form.value.is_active,
-    })
+    if (auth.isAdmin) {
+      await adminApi.updateUser(user.id, {
+        full_name: form.value.full_name,
+        department: form.value.department || null,
+        is_active: form.value.is_active,
+      })
+    }
     await adminApi.assignRoles(user.id, form.value.roles)
     await adminApi.setUserPermissions(
       user.id,
@@ -105,9 +114,11 @@ onMounted(loadAll)
 <template>
   <AppLayout>
     <h1 class="text-2xl font-bold text-slate-800">用户管理</h1>
-    <p class="mt-1 text-sm text-slate-500">为用户分配角色与页面权限,并设置数据范围。</p>
+    <p class="mt-1 text-sm text-slate-500">
+      {{ auth.isAdmin ? '为用户分配角色与页面权限,并设置数据范围。' : '管理本部门员工的角色与权限。' }}
+    </p>
 
-    <div class="mt-4 flex flex-wrap gap-4 text-sm">
+    <div v-if="auth.isAdmin" class="mt-4 flex flex-wrap gap-4 text-sm">
       <span class="rounded-lg bg-white px-3 py-1.5 text-slate-600 ring-1 ring-slate-200">
         已注册 <b class="text-slate-800">{{ stats?.total_users ?? '—' }}</b> 人
       </span>
@@ -132,8 +143,13 @@ onMounted(loadAll)
         <tbody class="divide-y divide-slate-100">
           <tr v-for="u in users" :key="u.id">
             <td class="px-5 py-3 font-medium text-slate-700">
-              {{ u.username }}
-              <span v-if="u.is_superuser" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">超管</span>
+              <div class="flex items-center gap-3">
+                <UserAvatar :src="u.avatar_url" :name="u.full_name" :username="u.username" :size="34" />
+                <span>
+                  {{ u.username }}
+                  <span v-if="u.is_superuser" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">超管</span>
+                </span>
+              </div>
             </td>
             <td class="px-5 py-3 text-slate-500">{{ u.full_name || '—' }}</td>
             <td class="px-5 py-3 text-slate-500">{{ u.department || '—' }}</td>
@@ -171,17 +187,36 @@ onMounted(loadAll)
           <div class="grid grid-cols-2 gap-3">
             <label class="block">
               <span class="mb-1 block text-sm text-slate-600">姓名</span>
-              <input v-model="form.full_name" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <input
+                v-model="form.full_name"
+                :disabled="!canEditProfile"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+              />
             </label>
             <label class="block">
               <span class="mb-1 block text-sm text-slate-600">部门</span>
-              <input v-model="form.department" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <select
+                v-model="form.department"
+                :disabled="!canEditProfile"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
+              >
+                <option value="">未设置</option>
+                <option v-for="d in departments" :key="d.id" :value="d.name">{{ d.name }}</option>
+              </select>
             </label>
           </div>
 
           <div class="flex items-center gap-4">
-            <label class="flex items-center gap-2 text-sm text-slate-600">
-              <input v-model="form.is_active" type="checkbox" class="h-4 w-4 accent-indigo-500" />启用账号
+            <label
+              class="flex items-center gap-2 text-sm"
+              :class="canEditProfile ? 'text-slate-600' : 'text-slate-300'"
+            >
+              <input
+                v-model="form.is_active"
+                type="checkbox"
+                class="h-4 w-4 accent-indigo-500"
+                :disabled="!canEditProfile"
+              />启用账号
             </label>
             <label
               v-if="auth.isSuperuser"
@@ -209,13 +244,18 @@ onMounted(loadAll)
                 />
                 {{ role.name }}
                 <span v-if="role.is_admin" class="rounded bg-amber-100 px-1 text-xs text-amber-700">管理</span>
+                <span v-else-if="role.is_department_manager" class="rounded bg-sky-100 px-1 text-xs text-sky-700">主管</span>
               </label>
             </div>
           </div>
 
           <div>
             <p class="mb-2 text-sm font-semibold text-slate-700">页面权限(直接授权)</p>
-            <PermissionPicker v-model="form.permissions" :groups="groups" />
+            <PermissionPicker
+              v-model="form.permissions"
+              :groups="groups"
+              :disabled-resources="disabledResources"
+            />
           </div>
 
           <div class="flex items-center gap-3 pt-2">

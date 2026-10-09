@@ -6,4 +6,5 @@ __pypackages__/
 .pdm-python
 *.db
 .env
+data/
 .pytest_cache/

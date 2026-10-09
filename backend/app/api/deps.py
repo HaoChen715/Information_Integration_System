@@ -6,7 +6,7 @@ from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.permissions import effective_permissions, is_admin
+from app.core.permissions import effective_permissions, is_admin, management_scope
 from app.core.security import decode_access_token
 from app.crud import user as user_crud
 from app.db.session import get_db
@@ -67,6 +67,15 @@ def get_current_admin(
     """超级管理员或管理员角色。"""
     if not is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
+    return current_user
+
+
+def get_current_manager(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """全局管理员或部门主管。"""
+    if management_scope(current_user) is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员或主管权限")
     return current_user
 
 

@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     ONLINE_WINDOW_MINUTES: int = 15  # 最近活跃在此窗口内视为在线
     LAST_SEEN_UPDATE_SECONDS: int = 60  # 活跃时间写入的最小间隔
 
+    # ---- 头像 ----
+    AVATAR_DIR: str = "./data/avatars"
+    AVATAR_MAX_MB: int = 2
+
 
 @lru_cache
 def get_settings() -> Settings:

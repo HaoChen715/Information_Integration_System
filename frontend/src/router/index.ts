@@ -33,13 +33,19 @@ const router = createRouter({
       path: '/admin/users',
       name: 'admin-users',
       component: () => import('../views/admin/AdminUsersView.vue'),
-      meta: { permission: 'user:view', admin: true },
+      meta: { manage: true },
     },
     {
       path: '/admin/roles',
       name: 'admin-roles',
       component: () => import('../views/admin/AdminRolesView.vue'),
-      meta: { permission: 'role:view', admin: true },
+      meta: { admin: true },
+    },
+    {
+      path: '/admin/departments',
+      name: 'admin-departments',
+      component: () => import('../views/admin/AdminDepartmentsView.vue'),
+      meta: { admin: true },
     },
     {
       path: '/:pathMatch(.*)*',
@@ -73,6 +79,9 @@ router.beforeEach(async (to) => {
 
   const permission = to.meta.permission as string | undefined
   if (to.meta.admin && !auth.isAdmin) {
+    return { name: 'dashboard' }
+  }
+  if (to.meta.manage && !auth.canManageUsers) {
     return { name: 'dashboard' }
   }
   if (permission && !auth.hasPermission(permission)) {

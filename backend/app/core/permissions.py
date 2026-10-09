@@ -54,35 +54,72 @@ def seed_permissions(db: Session) -> None:
 
 
 def seed_default_roles(db: Session) -> None:
-    """内置角色:管理员角色(拥有全部权限,is_admin)。"""
-    role = db.execute(select(Role).where(Role.code == "admin")).scalar_one_or_none()
+    """内置角色:管理员、主管(部门级),以及示例角色运维/开发。"""
+    _ensure_role(
+        db, "admin", "管理员", is_admin=True, is_system=True, all_permissions=True
+    )
+    _ensure_role(
+        db,
+        "supervisor",
+        "主管",
+        is_department_manager=True,
+        is_system=True,
+        with_permissions=["dashboard:view"],
+    )
+    _ensure_role(db, "ops", "运维", with_permissions=["dashboard:view"])
+    _ensure_role(db, "dev", "开发", with_permissions=["dashboard:view"])
+    db.commit()
+
+
+def _ensure_role(
+    db: Session,
+    code: str,
+    name: str,
+    *,
+    is_admin: bool = False,
+    is_department_manager: bool = False,
+    is_system: bool = False,
+    all_permissions: bool = False,
+    with_permissions: Optional[list[str]] = None,
+) -> None:
+    role = db.execute(select(Role).where(Role.code == code)).scalar_one_or_none()
     if role is None:
         role = Role(
-            code="admin",
-            name="管理员",
-            description="系统内置管理员角色,拥有全部权限",
-            is_system=True,
-            is_admin=True,
+            code=code,
+            name=name,
+            is_system=is_system,
+            is_admin=is_admin,
+            is_department_manager=is_department_manager,
         )
         db.add(role)
         db.flush()
     else:
-        role.is_system = True
-        role.is_admin = True
-        if not role.name:
-            role.name = "管理员"
+        if is_admin:
+            role.is_admin = True
+        if is_department_manager:
+            role.is_department_manager = True
+        if is_system:
+            role.is_system = True
+
     existing = {
         pid
         for (pid,) in db.execute(
             select(RolePermission.permission_id).where(RolePermission.role_id == role.id)
         ).all()
     }
-    for perm in db.execute(select(Permission)).scalars():
+    if all_permissions:
+        target_perms = list(db.execute(select(Permission)).scalars())
+    elif with_permissions:
+        target_perms = list(
+            db.execute(select(Permission).where(Permission.code.in_(with_permissions))).scalars()
+        )
+    else:
+        target_perms = []
+    for perm in target_perms:
         if perm.id not in existing:
             db.add(
                 RolePermission(role_id=role.id, permission_id=perm.id, data_scope="all")
             )
-    db.commit()
 
 
 def _max_scope(current: Optional[str], new: str) -> str:
@@ -123,3 +160,19 @@ def effective_permissions(db: Session, user: User) -> dict[str, str]:
 def is_admin(user: User) -> bool:
     """超级管理员或任意管理员角色。"""
     return user.is_superuser or any(role.is_admin for role in user.roles)
+
+
+def is_department_manager(user: User) -> bool:
+    """部门主管角色(且非全局管理员)。"""
+    if is_admin(user):
+        return False
+    return any(role.is_department_manager for role in user.roles)
+
+
+def management_scope(user: User) -> Optional[str]:
+    """管理范围:all=全局管理员,dept=部门主管,None=无管理权限。"""
+    if is_admin(user):
+        return "all"
+    if is_department_manager(user):
+        return "dept"
+    return None

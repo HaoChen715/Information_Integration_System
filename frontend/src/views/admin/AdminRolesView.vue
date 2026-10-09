@@ -20,6 +20,7 @@ const form = ref({
   name: '',
   description: '',
   is_admin: false,
+  is_department_manager: false,
   permissions: {} as Record<string, string>,
 })
 const showForm = ref(false)
@@ -33,7 +34,15 @@ async function loadAll() {
 function startCreate() {
   showForm.value = true
   message.value = ''
-  form.value = { id: null, code: '', name: '', description: '', is_admin: false, permissions: {} }
+  form.value = {
+    id: null,
+    code: '',
+    name: '',
+    description: '',
+    is_admin: false,
+    is_department_manager: false,
+    permissions: {},
+  }
 }
 
 function startEdit(role: Role) {
@@ -45,6 +54,7 @@ function startEdit(role: Role) {
     name: role.name,
     description: role.description ?? '',
     is_admin: role.is_admin,
+    is_department_manager: role.is_department_manager,
     permissions: Object.fromEntries(role.permissions.map((g) => [g.code, g.data_scope])),
   }
 }
@@ -63,6 +73,7 @@ async function save() {
         name: form.value.name,
         description: form.value.description,
         is_admin: form.value.is_admin,
+        is_department_manager: form.value.is_department_manager,
         permissions: grants,
       })
     } else {
@@ -70,6 +81,7 @@ async function save() {
         name: form.value.name,
         description: form.value.description,
         is_admin: form.value.is_admin,
+        is_department_manager: form.value.is_department_manager,
         permissions: grants,
       })
     }
@@ -128,6 +140,7 @@ onMounted(loadAll)
             <td class="px-5 py-3 text-slate-700">
               {{ role.name }}
               <span v-if="role.is_admin" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">管理</span>
+              <span v-else-if="role.is_department_manager" class="ml-1 rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">主管</span>
               <span v-if="role.is_system" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">内置</span>
             </td>
             <td class="px-5 py-3 text-slate-500">{{ role.description || '—' }}</td>
@@ -190,6 +203,11 @@ onMounted(loadAll)
               :disabled="!auth.isSuperuser"
             />
             管理员角色(仅超级管理员可设置)
+          </label>
+
+          <label class="flex items-center gap-2 text-sm text-slate-600">
+            <input v-model="form.is_department_manager" type="checkbox" class="h-4 w-4 accent-sky-500" />
+            主管角色(可管理本部门员工的角色与权限)
           </label>
 
           <div>

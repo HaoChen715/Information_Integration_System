@@ -26,6 +26,7 @@ export interface Role {
   description: string | null
   is_system: boolean
   is_admin: boolean
+  is_department_manager: boolean
   permissions: Grant[]
 }
 
@@ -41,6 +42,7 @@ export interface AdminUser {
   roles: string[]
   permissions: Record<string, string>
   direct_permissions: Grant[]
+  avatar_url: string | null
 }
 
 export interface RolePayload {
@@ -48,6 +50,7 @@ export interface RolePayload {
   name: string
   description?: string | null
   is_admin: boolean
+  is_department_manager: boolean
   permissions: Grant[]
 }
 
@@ -94,6 +97,55 @@ export interface UserStats {
 export async function fetchStats(): Promise<UserStats> {
   const { data } = await client.get<UserStats>('/admin/stats')
   return data
+}
+
+export interface OnlineUser {
+  id: number
+  username: string
+  full_name: string | null
+  department: string | null
+  email: string | null
+  auth_source: string
+  roles: string[]
+  last_login_at: string | null
+  last_seen_at: string | null
+  avatar_url: string | null
+}
+
+export async function fetchOnlineUsers(): Promise<OnlineUser[]> {
+  const { data } = await client.get<OnlineUser[]>('/admin/online-users')
+  return data
+}
+
+export interface Department {
+  id: number
+  name: string
+  description: string | null
+}
+
+export async function fetchDepartments(): Promise<Department[]> {
+  const { data } = await client.get<Department[]>('/admin/departments')
+  return data
+}
+
+export async function createDepartment(payload: {
+  name: string
+  description?: string | null
+}): Promise<Department> {
+  const { data } = await client.post<Department>('/admin/departments', payload)
+  return data
+}
+
+export async function updateDepartment(
+  id: number,
+  payload: { name?: string; description?: string | null },
+): Promise<Department> {
+  const { data } = await client.put<Department>(`/admin/departments/${id}`, payload)
+  return data
+}
+
+export async function deleteDepartment(id: number): Promise<void> {
+  await client.delete(`/admin/departments/${id}`)
 }
 
 export async function updateUser(

@@ -55,6 +55,7 @@ def create_role(db: Session, data: RoleCreate) -> Role:
         name=data.name,
         description=data.description,
         is_admin=data.is_admin,
+        is_department_manager=data.is_department_manager,
     )
     db.add(role)
     db.flush()
@@ -71,6 +72,8 @@ def update_role(db: Session, role: Role, data: RoleUpdate) -> Role:
         role.description = data.description
     if data.is_admin is not None:
         role.is_admin = data.is_admin
+    if data.is_department_manager is not None:
+        role.is_department_manager = data.is_department_manager
     if data.permissions is not None:
         _replace_role_permissions(db, role, data.permissions)
     db.commit()

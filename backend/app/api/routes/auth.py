@@ -5,8 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.serializers import user_public
 from app.core.config import settings
-from app.core.permissions import effective_permissions, is_admin
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models.user import User
@@ -61,10 +61,7 @@ def read_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UserPublic:
-    data = UserPublic.model_validate(current_user)
-    data.permissions = effective_permissions(db, current_user)
-    data.is_admin = is_admin(current_user)
-    return data
+    return user_public(db, current_user)
 
 
 @router.get("/methods", summary="可用的登录方式")

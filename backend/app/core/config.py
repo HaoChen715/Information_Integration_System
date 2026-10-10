@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     # 多源配置:每个源对应一个 Baserow 工作区(独立令牌)
     # {"源名": {"url": "...", "token": "...", "tables": {"数据集": "表ID"}, "department_field": "部门"}}
     BASEROW_SOURCES: dict[str, dict] = {}
+    # 用户自动发现模式:配置 Baserow 用户账号后,自动列出所有库/表(优先级高于上面两种)
+    BASEROW_USER_EMAIL: str = ""
+    BASEROW_USER_PASSWORD: str = ""
+    # 仅暴露这些工作区(留空=全部)
+    BASEROW_WORKSPACES: list[str] = []
 
 
 @lru_cache

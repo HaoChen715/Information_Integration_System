@@ -1,4 +1,4 @@
-"""Baserow 数据看板接口(按部门过滤 + 权限控制)。"""
+"""Baserow 数据看板接口(多数据源 + 按部门过滤 + 权限控制)。"""
 
 from typing import Any, Optional
 
@@ -6,12 +6,11 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_permission
-from app.core.config import settings
 from app.core.permissions import management_scope
 from app.db.session import get_db
 from app.models.user import User
 from app.services import baserow
-from app.services.baserow import BaserowError
+from app.services.baserow import BaserowError, BaserowSource
 
 router = APIRouter(prefix="/data", tags=["数据看板"])
 
@@ -20,21 +19,23 @@ def _is_global(user: User) -> bool:
     return management_scope(user) == "all"
 
 
-def _check_table(table_id: str) -> None:
-    if table_id not in set(settings.BASEROW_TABLES.values()):
+def _source_for(table_id: str) -> BaserowSource:
+    source = baserow.source_for_table(table_id)
+    if source is None:
         raise HTTPException(status_code=404, detail="未知数据集")
+    return source
 
 
-def _dept_filter(table_id: str, user: User) -> Optional[dict[str, str]]:
+def _dept_filter(source: BaserowSource, table_id: str, user: User) -> Optional[dict[str, str]]:
     """构造按部门过滤的 Baserow 参数;返回 None 表示强制空结果。"""
-    field = settings.BASEROW_DEPARTMENT_FIELD
+    field = source.department_field
     if not field or _is_global(user):
         return {}
     if not user.department:
         return None
 
     try:
-        fields = baserow.list_fields(table_id)
+        fields = baserow.list_fields(source, table_id)
     except BaserowError:
         return None
     fdef = next((f for f in fields if f.get("name") == field), None)
@@ -51,8 +52,8 @@ def _dept_filter(table_id: str, user: User) -> Optional[dict[str, str]]:
     return {f"filter__{field}__equal": user.department}
 
 
-def _row_dept_value(row: dict[str, Any]) -> Optional[str]:
-    field = settings.BASEROW_DEPARTMENT_FIELD
+def _row_dept_value(source: BaserowSource, row: dict[str, Any]) -> Optional[str]:
+    field = source.department_field
     if not field:
         return None
     value = row.get(field)
@@ -61,20 +62,20 @@ def _row_dept_value(row: dict[str, Any]) -> Optional[str]:
     return value
 
 
-def _assert_row_scope(table_id: str, row_id: int, user: User) -> None:
-    if not settings.BASEROW_DEPARTMENT_FIELD or _is_global(user):
+def _assert_row_scope(source: BaserowSource, table_id: str, row_id: int, user: User) -> None:
+    if not source.department_field or _is_global(user):
         return
     try:
-        row = baserow.get_row(table_id, row_id)
+        row = baserow.get_row(source, table_id, row_id)
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
-    if _row_dept_value(row) != user.department:
+    if _row_dept_value(source, row) != user.department:
         raise HTTPException(status_code=403, detail="只能操作本部门数据")
 
 
-@router.get("/datasets", summary="数据集列表")
+@router.get("/datasets", summary="数据集列表(跨数据源)")
 def datasets(_: User = Depends(require_permission("data:view"))) -> list[dict[str, str]]:
-    return [{"key": key, "name": key, "table_id": tid} for key, tid in settings.BASEROW_TABLES.items()]
+    return baserow.all_datasets()
 
 
 @router.get("/tables/{table_id}/fields", summary="数据表字段")
@@ -82,9 +83,9 @@ def table_fields(
     table_id: str,
     _: User = Depends(require_permission("data:view")),
 ) -> list[dict[str, Any]]:
-    _check_table(table_id)
+    source = _source_for(table_id)
     try:
-        return baserow.list_fields(table_id)
+        return baserow.list_fields(source, table_id)
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -98,17 +99,13 @@ def table_rows(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:view")),
 ) -> dict[str, Any]:
-    _check_table(table_id)
-    dept_filter = _dept_filter(table_id, current)
+    source = _source_for(table_id)
+    dept_filter = _dept_filter(source, table_id, current)
     if dept_filter is None:
         return {"count": 0, "next": None, "previous": None, "results": []}
     try:
         return baserow.list_rows(
-            table_id,
-            page=page,
-            size=size,
-            search=search,
-            filters=dept_filter,
+            source, table_id, page=page, size=size, search=search, filters=dept_filter
         )
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
@@ -121,13 +118,12 @@ def create_row(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:create")),
 ) -> dict[str, Any]:
-    _check_table(table_id)
+    source = _source_for(table_id)
     body = dict(payload)
-    field = settings.BASEROW_DEPARTMENT_FIELD
-    if field and not _is_global(current) and current.department:
-        body[field] = current.department
+    if source.department_field and not _is_global(current) and current.department:
+        body[source.department_field] = current.department
     try:
-        return baserow.create_row(table_id, body)
+        return baserow.create_row(source, table_id, body)
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -140,10 +136,10 @@ def update_row(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:edit")),
 ) -> dict[str, Any]:
-    _check_table(table_id)
-    _assert_row_scope(table_id, row_id, current)
+    source = _source_for(table_id)
+    _assert_row_scope(source, table_id, row_id, current)
     try:
-        return baserow.update_row(table_id, row_id, payload)
+        return baserow.update_row(source, table_id, row_id, payload)
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -155,10 +151,10 @@ def delete_row(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:delete")),
 ) -> dict[str, bool]:
-    _check_table(table_id)
-    _assert_row_scope(table_id, row_id, current)
+    source = _source_for(table_id)
+    _assert_row_scope(source, table_id, row_id, current)
     try:
-        baserow.delete_row(table_id, row_id)
+        baserow.delete_row(source, table_id, row_id)
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     return {"ok": True}

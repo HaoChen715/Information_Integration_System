@@ -70,12 +70,16 @@ class Settings(BaseSettings):
 
     # ---- Baserow 数据源 ----
     BASEROW_ENABLED: bool = False
+    # 单源配置(兼容旧配置;若配置了 BASEROW_SOURCES 则忽略)
     BASEROW_URL: str = "http://192.168.31.253"
     BASEROW_TOKEN: str = ""  # 数据库令牌
     # 数据集名称 -> Baserow 表 ID
     BASEROW_TABLES: dict[str, str] = {}
     # 按部门过滤所用的字段名(留空则不过滤)
     BASEROW_DEPARTMENT_FIELD: str = "部门"
+    # 多源配置:每个源对应一个 Baserow 工作区(独立令牌)
+    # {"源名": {"url": "...", "token": "...", "tables": {"数据集": "表ID"}, "department_field": "部门"}}
+    BASEROW_SOURCES: dict[str, dict] = {}
 
 
 @lru_cache

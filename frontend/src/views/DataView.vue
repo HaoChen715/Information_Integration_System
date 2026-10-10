@@ -38,6 +38,7 @@ const canEdit = computed(() => auth.hasPermission('data:edit'))
 const canDelete = computed(() => auth.hasPermission('data:delete'))
 
 const activeDataset = computed(() => datasets.value.find((d) => d.key === activeKey.value))
+const multiSource = computed(() => new Set(datasets.value.map((d) => d.source)).size > 1)
 
 const groupField = computed(() => fields.value.find((f) => f.type === 'single_select'))
 
@@ -211,7 +212,9 @@ async function removeRow(row: Record<string, unknown>) {
           v-model="activeKey"
           class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
         >
-          <option v-for="d in datasets" :key="d.key" :value="d.key">{{ d.name }}</option>
+          <option v-for="d in datasets" :key="d.key" :value="d.key">
+            {{ multiSource ? `${d.source} · ${d.name}` : d.name }}
+          </option>
         </select>
         <input
           v-model="search"

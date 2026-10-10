@@ -18,6 +18,7 @@ export interface Dataset {
   key: string
   name: string
   table_id: string
+  source: string
 }
 
 export interface RowsPage {

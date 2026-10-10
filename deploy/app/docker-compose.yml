@@ -2,7 +2,7 @@ name: iis
 
 services:
   backend:
-    image: iis-backend:${TAG:-0.6.0}
+    image: iis-backend:${TAG:-0.6.1}
     build:
       context: ../..
       dockerfile: deploy/app/backend.Dockerfile
@@ -31,7 +31,7 @@ services:
       start_period: 10s
 
   frontend:
-    image: iis-frontend:${TAG:-0.6.0}
+    image: iis-frontend:${TAG:-0.6.1}
     build:
       context: ../..
       dockerfile: deploy/app/frontend.Dockerfile

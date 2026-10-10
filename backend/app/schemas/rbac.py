@@ -82,6 +82,7 @@ class UserAdminOut(BaseModel):
     is_superuser: bool
     auth_source: str
     roles: list[str] = []
+    role_names: list[str] = []
     permissions: dict[str, str] = {}
     direct_permissions: list[PermissionGrant] = []
     avatar_url: Optional[str] = None

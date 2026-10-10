@@ -43,6 +43,18 @@ const createForm = ref({
 const canEditProfile = computed(() => auth.isAdmin)
 const disabledResources = computed(() => (auth.isAdmin ? [] : ['user', 'role']))
 
+const search = ref('')
+const filteredUsers = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return users.value
+  return users.value.filter(
+    (u) =>
+      u.username.toLowerCase().includes(q) ||
+      (u.full_name ?? '').toLowerCase().includes(q) ||
+      (u.department ?? '').toLowerCase().includes(q),
+  )
+})
+
 async function loadAll() {
   const tasks: Promise<unknown>[] = [
     adminApi.fetchAdminUsers().then((v) => (users.value = v)),
@@ -201,7 +213,16 @@ onMounted(loadAll)
       </span>
     </div>
 
-    <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div class="mt-4 flex items-center gap-3">
+      <input
+        v-model="search"
+        placeholder="搜索用户名 / 姓名 / 部门"
+        class="w-full max-w-xs rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+      />
+      <span class="text-sm text-slate-400">共 {{ filteredUsers.length }} 人</span>
+    </div>
+
+    <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-400">
           <tr>
@@ -215,7 +236,7 @@ onMounted(loadAll)
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr v-for="u in users" :key="u.id">
+          <tr v-for="u in filteredUsers" :key="u.id">
             <td class="px-5 py-3 font-medium text-slate-700">
               <div class="flex items-center gap-3">
                 <UserAvatar :src="u.avatar_url" :name="u.full_name" :username="u.username" :size="34" />
@@ -230,11 +251,11 @@ onMounted(loadAll)
             <td class="px-5 py-3 text-slate-500">{{ u.auth_source }}</td>
             <td class="px-5 py-3">
               <span
-                v-for="r in u.roles"
+                v-for="r in u.role_names"
                 :key="r"
                 class="mr-1 rounded bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-600"
               >{{ r }}</span>
-              <span v-if="!u.roles.length" class="text-slate-400">—</span>
+              <span v-if="!u.role_names.length" class="text-slate-400">—</span>
             </td>
             <td class="px-5 py-3 text-slate-500">{{ Object.keys(u.permissions).length }}</td>
             <td class="px-5 py-3">

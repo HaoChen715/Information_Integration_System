@@ -162,10 +162,20 @@ async function removeAv() {
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">用户名</p>
         <p class="mt-2 text-lg font-semibold text-slate-800">{{ auth.user?.username }}</p>
       </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-5">
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-400">部门</p>
-        <p class="mt-2 text-lg font-semibold text-slate-800">{{ auth.user?.department || '—' }}</p>
-      </div>
+      <RouterLink
+        to="/department"
+        class="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-cyan-500 p-5 text-white shadow-lg shadow-indigo-900/10 transition hover:shadow-xl"
+      >
+        <div class="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/15" />
+        <div class="pointer-events-none absolute -bottom-10 -left-6 h-24 w-24 rounded-full bg-cyan-300/20 blur-xl" />
+        <p class="relative text-xs font-medium uppercase tracking-wide text-white/70">部门</p>
+        <p class="relative mt-2 text-lg font-semibold">
+          {{ auth.user?.department || '未设置部门' }}
+        </p>
+        <p class="relative mt-1 text-xs text-white/70 group-hover:text-white/90">
+          点击进入部门空间 →
+        </p>
+      </RouterLink>
       <div class="rounded-2xl border border-slate-200 bg-white p-5">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-400">角色</p>
         <div class="mt-2 flex flex-wrap gap-1.5">

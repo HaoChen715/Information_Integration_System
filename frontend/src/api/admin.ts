@@ -40,6 +40,7 @@ export interface AdminUser {
   is_superuser: boolean
   auth_source: string
   roles: string[]
+  role_names: string[]
   permissions: Record<string, string>
   direct_permissions: Grant[]
   avatar_url: string | null

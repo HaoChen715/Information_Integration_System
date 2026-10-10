@@ -73,6 +73,7 @@ def _user_out(db: Session, user: User) -> UserAdminOut:
         is_superuser=user.is_superuser,
         auth_source=user.auth_source,
         roles=user.role_codes,
+        role_names=[role.name for role in user.roles],
         permissions=effective_permissions(db, user),
         direct_permissions=rbac_crud.user_grants(db, user),
         avatar_url=avatar_url(user),

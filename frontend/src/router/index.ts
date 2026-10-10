@@ -29,6 +29,12 @@ const router = createRouter({
       component: () => import('../views/DepartmentView.vue'),
     },
     {
+      path: '/department/data',
+      name: 'department-data',
+      component: () => import('../views/DataView.vue'),
+      meta: { permission: 'data:view' },
+    },
+    {
       path: '/records',
       name: 'records',
       component: () => import('../views/RecordsView.vue'),

@@ -18,12 +18,13 @@ const allUsers = ref<AdminUser[]>([])
 const members = ref<DepartmentMember[]>([])
 const selectedDept = ref('')
 
-const cards = [
-  { title: '数据看板', desc: '部门数据统计与可视化' },
-  { title: '任务中心', desc: '待办与任务流转' },
-  { title: '公告通知', desc: '部门公告与消息' },
-  { title: '文档库', desc: '共享文档与资料' },
+const baseCards = [
+  { title: '数据看板', desc: '查看并编辑 Baserow 数据', to: '/department/data', perm: 'data:view' },
+  { title: '任务中心', desc: '待办与任务流转', to: '', perm: '' },
+  { title: '公告通知', desc: '部门公告与消息', to: '', perm: '' },
+  { title: '文档库', desc: '共享文档与资料', to: '', perm: '' },
 ]
+const cards = computed(() => baseCards.filter((c) => !c.perm || auth.hasPermission(c.perm)))
 
 const adminMembers = computed(() =>
   allUsers.value.filter((u) => (u.department ?? '') === selectedDept.value),
@@ -168,17 +169,19 @@ onMounted(async () => {
           <p class="relative font-semibold text-white/90">功能入口</p>
           <p class="relative mt-0.5 text-xs text-white/60">后续将作为各功能页面的跳转入口</p>
           <div class="relative mt-5 grid gap-4 sm:grid-cols-2">
-            <div
+            <component
+              :is="card.to ? 'RouterLink' : 'div'"
               v-for="card in cards"
               :key="card.title"
+              :to="card.to || undefined"
               class="group rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition hover:bg-white/20"
             >
               <p class="font-semibold text-white">{{ card.title }}</p>
               <p class="mt-1 text-xs text-white/70">{{ card.desc }}</p>
               <span class="mt-4 inline-block text-xs text-white/50 group-hover:text-white/80">
-                敬请期待 →
+                {{ card.to ? '进入 →' : '敬请期待 →' }}
               </span>
-            </div>
+            </component>
           </div>
         </div>
       </div>

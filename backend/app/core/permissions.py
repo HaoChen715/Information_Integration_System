@@ -21,6 +21,7 @@ RESOURCE_LABELS = {
     "user": "用户管理",
     "role": "角色管理",
     "record": "资料数据",
+    "data": "数据看板",
 }
 
 # 权限目录:(code, 名称, 资源, 操作)
@@ -38,6 +39,10 @@ PERMISSION_CATALOG = [
     ("record:create", "新增资料", "record", "create"),
     ("record:edit", "编辑资料", "record", "edit"),
     ("record:delete", "删除资料", "record", "delete"),
+    ("data:view", "查看数据看板", "data", "view"),
+    ("data:create", "新增数据", "data", "create"),
+    ("data:edit", "编辑数据", "data", "edit"),
+    ("data:delete", "删除数据", "data", "delete"),
 ]
 
 

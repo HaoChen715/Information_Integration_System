@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-TAG=${TAG:-0.6.1}
+TAG=${TAG:-0.7.0}
 OUT=${OUT:-dist}
 mkdir -p "$OUT"
 

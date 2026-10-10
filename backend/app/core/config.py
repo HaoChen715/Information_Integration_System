@@ -68,6 +68,15 @@ class Settings(BaseSettings):
     AVATAR_DIR: str = "./data/avatars"
     AVATAR_MAX_MB: int = 2
 
+    # ---- Baserow 数据源 ----
+    BASEROW_ENABLED: bool = False
+    BASEROW_URL: str = "http://192.168.31.253"
+    BASEROW_TOKEN: str = ""  # 数据库令牌
+    # 数据集名称 -> Baserow 表 ID
+    BASEROW_TABLES: dict[str, str] = {}
+    # 按部门过滤所用的字段名(留空则不过滤)
+    BASEROW_DEPARTMENT_FIELD: str = "部门"
+
 
 @lru_cache
 def get_settings() -> Settings:

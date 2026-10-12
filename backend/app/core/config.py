@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     BASEROW_USER_PASSWORD: str = ""
     # 仅暴露这些工作区(留空=全部)
     BASEROW_WORKSPACES: list[str] = []
+    # Baserow HTTPS 证书:内网自签时指定 CA,或临时跳过校验(仅测试)
+    BASEROW_VERIFY_SSL: bool = True
+    BASEROW_CA_CERT: Optional[str] = None
 
 
 @lru_cache

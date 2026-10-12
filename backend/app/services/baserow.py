@@ -40,6 +40,13 @@ def _user_mode() -> bool:
     return bool(settings.BASEROW_USER_EMAIL and settings.BASEROW_USER_PASSWORD)
 
 
+def _verify() -> Any:
+    """TLS 校验参数:优先使用指定的 CA,否则按 BASEROW_VERIFY_SSL。"""
+    if settings.BASEROW_CA_CERT:
+        return settings.BASEROW_CA_CERT
+    return settings.BASEROW_VERIFY_SSL
+
+
 def all_sources() -> list[BaserowSource]:
     if settings.BASEROW_SOURCES:
         return [
@@ -83,6 +90,7 @@ def _login() -> tuple[str, float]:
                 "password": settings.BASEROW_USER_PASSWORD,
             },
             timeout=20.0,
+            verify=_verify(),
         )
         resp.raise_for_status()
         jwt = resp.json()["token"]
@@ -118,7 +126,7 @@ def discover_databases(force: bool = False) -> list[dict[str, Any]]:
     jwt = _jwt()
     url = f"{settings.BASEROW_URL.rstrip('/')}/api/applications/"
     try:
-        resp = httpx.get(url, headers={"Authorization": f"JWT {jwt}"}, timeout=20.0)
+        resp = httpx.get(url, headers={"Authorization": f"JWT {jwt}"}, timeout=20.0, verify=_verify())
         resp.raise_for_status()
         apps = resp.json()
     except Exception as exc:  # noqa: BLE001
@@ -229,7 +237,9 @@ def _client(access: TableAccess) -> httpx.Client:
         headers = {"Authorization": f"Token {access.token}"}
     else:
         raise BaserowError("数据源未配置凭据")
-    return httpx.Client(base_url=f"{access.url.rstrip('/')}/api", headers=headers, timeout=20.0)
+    return httpx.Client(
+        base_url=f"{access.url.rstrip('/')}/api", headers=headers, timeout=20.0, verify=_verify()
+    )
 
 
 def _request(access: TableAccess, method: str, path: str, **kwargs: Any) -> httpx.Response:

@@ -6,11 +6,14 @@ import * as baserowApi from '../../api/baserow'
 import type { BaserowSource } from '../../api/baserow'
 
 const sources = ref<BaserowSource[]>([])
+const options = ref<baserowApi.BaserowOptions | null>(null)
+const fieldOptions = ref<string[]>([])
 const showForm = ref(false)
 const saving = ref(false)
 const message = ref('')
 const testMsg = ref('')
 const testing = ref(false)
+const loadingFields = ref(false)
 
 const form = ref({
   id: null as number | null,
@@ -24,17 +27,45 @@ const form = ref({
 
 async function load() {
   sources.value = await baserowApi.fetchSources()
+  try {
+    options.value = await baserowApi.fetchOptions()
+  } catch {
+    options.value = null
+  }
+}
+
+async function loadFieldsForForm() {
+  fieldOptions.value = []
+  const t = form.value.tables.find((x) => x.table_id)
+  if (!t || !form.value.token) return
+  loadingFields.value = true
+  testMsg.value = ''
+  try {
+    const res = await baserowApi.fetchTableFields({
+      url: form.value.url,
+      token: form.value.token,
+      table_id: t.table_id,
+    })
+    fieldOptions.value = res.map((f) => f.name)
+  } catch (err: unknown) {
+    testMsg.value =
+      '获取字段失败:' +
+      ((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '')
+  } finally {
+    loadingFields.value = false
+  }
 }
 
 function startCreate() {
   message.value = ''
   testMsg.value = ''
+  fieldOptions.value = []
   form.value = {
     id: null,
     name: '',
-    url: '',
+    url: options.value?.default_url || '',
     token: '',
-    department_field: '部门',
+    department_field: '',
     enabled: true,
     tables: [{ name: '', table_id: '', enabled: true }],
   }
@@ -44,6 +75,7 @@ function startCreate() {
 function startEdit(src: BaserowSource) {
   message.value = ''
   testMsg.value = ''
+  fieldOptions.value = []
   form.value = {
     id: src.id,
     name: src.name,
@@ -53,6 +85,7 @@ function startEdit(src: BaserowSource) {
     enabled: src.enabled,
     tables: src.tables.map((t) => ({ name: t.name, table_id: t.table_id, enabled: t.enabled })),
   }
+  if (src.department_field) fieldOptions.value = [src.department_field]
   showForm.value = true
 }
 
@@ -81,6 +114,7 @@ async function testRow(i: number) {
       token: form.value.token,
       table_id: t.table_id,
     })
+    fieldOptions.value = res.fields
     testMsg.value = `✅ 连接成功:${res.count} 条数据,字段:${res.fields.join('、')}`
   } catch (err: unknown) {
     testMsg.value =
@@ -223,8 +257,24 @@ onMounted(load)
               />
             </label>
             <label class="block">
-              <span class="mb-1 block text-sm text-slate-600">部门过滤字段(留空=不限制)</span>
-              <input v-model="form.department_field" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+              <span class="mb-1 flex items-center justify-between text-sm text-slate-600">
+                <span>部门字段(留空=不限制)</span>
+                <button
+                  type="button"
+                  class="text-xs text-indigo-600 hover:underline disabled:opacity-50"
+                  :disabled="loadingFields"
+                  @click="loadFieldsForForm"
+                >
+                  {{ loadingFields ? '获取中...' : '获取字段' }}
+                </button>
+              </span>
+              <select
+                v-model="form.department_field"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                <option value="">不限制</option>
+                <option v-for="f in fieldOptions" :key="f" :value="f">{{ f }}</option>
+              </select>
             </label>
           </div>
 

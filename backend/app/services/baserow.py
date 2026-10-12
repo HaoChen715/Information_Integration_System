@@ -415,3 +415,10 @@ def test_table(url: str, token: str, table_id: str) -> dict[str, Any]:
         "count": rows.get("count", 0),
         "fields": [f.get("name") for f in fields],
     }
+
+
+def list_table_fields(url: str, token: str, table_id: str) -> list[dict[str, Any]]:
+    """获取表字段(名称 + 类型)。"""
+    access = TableAccess(url=url, token=token)
+    fields = _handle(_request(access, "GET", f"/database/fields/table/{table_id}/"), "获取字段")
+    return [{"name": f.get("name"), "type": f.get("type")} for f in fields]

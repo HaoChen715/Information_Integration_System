@@ -37,3 +37,14 @@ class BaserowTestIn(BaseModel):
     url: str
     token: str
     table_id: str
+
+
+class BaserowFieldsIn(BaseModel):
+    url: str
+    token: str
+    table_id: str
+
+
+class BaserowOptionsOut(BaseModel):
+    default_url: str
+    departments: list[str]

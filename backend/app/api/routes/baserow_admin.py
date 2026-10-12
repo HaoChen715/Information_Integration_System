@@ -5,10 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.baserow_config import BaserowSourceConfig, BaserowTableConfig
+from app.models.department import Department
 from app.models.user import User
 from app.schemas.baserow_config import (
+    BaserowFieldsIn,
+    BaserowOptionsOut,
     BaserowSourceIn,
     BaserowSourceOut,
     BaserowTableOut,
@@ -43,6 +47,26 @@ def list_sources(
 ) -> list[BaserowSourceOut]:
     rows = db.execute(select(BaserowSourceConfig).order_by(BaserowSourceConfig.id)).scalars()
     return [_out(row) for row in rows]
+
+
+@router.get("/options", response_model=BaserowOptionsOut, summary="配置默认项")
+def options(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+) -> BaserowOptionsOut:
+    names = list(db.execute(select(Department.name).order_by(Department.id)).scalars())
+    return BaserowOptionsOut(default_url=settings.BASEROW_URL, departments=names)
+
+
+@router.post("/fields", summary="获取表字段")
+def table_fields(
+    payload: BaserowFieldsIn,
+    _: User = Depends(get_current_admin),
+) -> list[dict]:
+    try:
+        return baserow.list_table_fields(payload.url, payload.token, payload.table_id)
+    except BaserowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/sources", response_model=BaserowSourceOut, summary="新增数据源")

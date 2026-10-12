@@ -60,3 +60,27 @@ export async function testConnection(payload: {
   const { data } = await client.post<TestResult>('/admin/baserow/test', payload)
   return data
 }
+
+export interface BaserowFieldInfo {
+  name: string
+  type: string
+}
+
+export interface BaserowOptions {
+  default_url: string
+  departments: string[]
+}
+
+export async function fetchOptions(): Promise<BaserowOptions> {
+  const { data } = await client.get<BaserowOptions>('/admin/baserow/options')
+  return data
+}
+
+export async function fetchTableFields(payload: {
+  url: string
+  token: string
+  table_id: string
+}): Promise<BaserowFieldInfo[]> {
+  const { data } = await client.post<BaserowFieldInfo[]>('/admin/baserow/fields', payload)
+  return data
+}

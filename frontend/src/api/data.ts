@@ -19,6 +19,16 @@ export interface Dataset {
   name: string
   table_id: string
   source: string
+  workspace: string
+  database: string
+  table: string
+}
+
+export interface DataStatus {
+  enabled: boolean
+  mode: string
+  datasets: number
+  error: string | null
 }
 
 export interface RowsPage {
@@ -30,6 +40,11 @@ export interface RowsPage {
 
 export async function fetchDatasets(): Promise<Dataset[]> {
   const { data } = await client.get<Dataset[]>('/data/datasets')
+  return data
+}
+
+export async function fetchStatus(): Promise<DataStatus> {
+  const { data } = await client.get<DataStatus>('/data/status')
   return data
 }
 

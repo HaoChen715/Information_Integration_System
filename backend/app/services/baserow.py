@@ -110,6 +110,7 @@ def _jwt(force: bool = False) -> str:
 
 def discover_databases(force: bool = False) -> list[dict[str, Any]]:
     """用用户身份列出所有数据库与表(按配置的工作区过滤)。"""
+    _enabled()
     with _discovery_lock:
         if not force and _discovery["data"] is not None and time.time() - _discovery["ts"] < _DISCOVERY_TTL:
             return _discovery["data"]
@@ -147,6 +148,7 @@ def discover_databases(force: bool = False) -> list[dict[str, Any]]:
 
 def all_datasets() -> list[dict[str, str]]:
     """全部数据集(供前端选择);key 全局唯一。"""
+    _enabled()
     if _user_mode():
         datasets: list[dict[str, str]] = []
         for db in discover_databases():
@@ -157,6 +159,9 @@ def all_datasets() -> list[dict[str, str]]:
                         "name": f"{db['database']}/{t['name']}",
                         "table_id": t["id"],
                         "source": db["workspace"],
+                        "workspace": db["workspace"],
+                        "database": db["database"],
+                        "table": t["name"],
                     }
                 )
         return datasets
@@ -170,9 +175,31 @@ def all_datasets() -> list[dict[str, str]]:
                     "name": name,
                     "table_id": table_id,
                     "source": source.key,
+                    "workspace": source.key,
+                    "database": "",
+                    "table": name,
                 }
             )
     return datasets
+
+
+def status() -> dict[str, Any]:
+    """数据源状态(供前端提示与排错)。"""
+    info: dict[str, Any] = {
+        "enabled": settings.BASEROW_ENABLED,
+        "mode": "none",
+        "datasets": 0,
+        "error": None,
+    }
+    if not settings.BASEROW_ENABLED:
+        info["error"] = "Baserow 未启用(BASEROW_ENABLED=false)"
+        return info
+    info["mode"] = "user" if _user_mode() else "token"
+    try:
+        info["datasets"] = len(all_datasets())
+    except BaserowError as exc:
+        info["error"] = str(exc)
+    return info
 
 
 def resolve_table(table_id: str) -> Optional[TableAccess]:

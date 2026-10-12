@@ -76,6 +76,11 @@ def _assert_row_scope(access: TableAccess, table_id: str, row_id: int, user: Use
         raise HTTPException(status_code=403, detail="只能操作本部门数据")
 
 
+@router.get("/status", summary="数据源状态")
+def data_status(_: User = Depends(require_permission("data:view"))) -> dict[str, Any]:
+    return baserow.status()
+
+
 @router.get("/datasets", summary="数据集列表(自动发现/多源)")
 def datasets(_: User = Depends(require_permission("data:view"))) -> list[dict[str, str]]:
     try:

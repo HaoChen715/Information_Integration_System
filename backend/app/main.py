@@ -3,7 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import admin, auth, data, departments, oidc, records, users
+from app.api.routes import (
+    admin,
+    auth,
+    baserow_admin,
+    data,
+    departments,
+    oidc,
+    records,
+    users,
+)
 from app.core.avatars import avatar_dir
 from app.core.config import settings
 from app.core.permissions import seed_default_roles, seed_permissions
@@ -31,7 +40,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.9.2",
+    version="0.10.0",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -52,6 +61,7 @@ app.include_router(records.router, prefix=settings.API_V1_PREFIX)
 app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(departments.router, prefix=settings.API_V1_PREFIX)
 app.include_router(data.router, prefix=settings.API_V1_PREFIX)
+app.include_router(baserow_admin.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/api/health", tags=["系统"], summary="健康检查")

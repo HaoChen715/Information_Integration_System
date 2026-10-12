@@ -47,7 +47,39 @@ def _verify() -> Any:
     return settings.BASEROW_VERIFY_SSL
 
 
+def _db_sources() -> list[BaserowSource]:
+    """来自网页配置(数据库)的数据源。"""
+    try:
+        from app.db.session import SessionLocal
+        from app.models.baserow_config import BaserowSourceConfig
+    except Exception:  # noqa: BLE001
+        return []
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(BaserowSourceConfig)
+            .filter(BaserowSourceConfig.enabled.is_(True))
+            .order_by(BaserowSourceConfig.id)
+            .all()
+        )
+        return [
+            BaserowSource(
+                key=row.name,
+                url=row.url,
+                token=row.token,
+                tables={t.name: t.table_id for t in row.tables if t.enabled},
+                department_field=row.department_field,
+            )
+            for row in rows
+        ]
+    finally:
+        db.close()
+
+
 def all_sources() -> list[BaserowSource]:
+    db_sources = _db_sources()
+    if db_sources:
+        return db_sources
     if settings.BASEROW_SOURCES:
         return [
             BaserowSource(
@@ -154,28 +186,9 @@ def discover_databases(force: bool = False) -> list[dict[str, Any]]:
     return databases
 
 
-def all_datasets() -> list[dict[str, str]]:
-    """全部数据集(供前端选择);key 全局唯一。"""
-    _enabled()
-    if _user_mode():
-        datasets: list[dict[str, str]] = []
-        for db in discover_databases():
-            for t in db["tables"]:
-                datasets.append(
-                    {
-                        "key": f"{db['workspace']}/{db['database']}/{t['name']}",
-                        "name": f"{db['database']}/{t['name']}",
-                        "table_id": t["id"],
-                        "source": db["workspace"],
-                        "workspace": db["workspace"],
-                        "database": db["database"],
-                        "table": t["name"],
-                    }
-                )
-        return datasets
-
-    datasets = []
-    for source in all_sources():
+def _datasets_from_sources(sources: list[BaserowSource]) -> list[dict[str, str]]:
+    datasets: list[dict[str, str]] = []
+    for source in sources:
         for name, table_id in source.tables.items():
             datasets.append(
                 {
@@ -191,6 +204,44 @@ def all_datasets() -> list[dict[str, str]]:
     return datasets
 
 
+def _datasets_from_discovery() -> list[dict[str, str]]:
+    datasets: list[dict[str, str]] = []
+    for db in discover_databases():
+        for t in db["tables"]:
+            datasets.append(
+                {
+                    "key": f"{db['workspace']}/{db['database']}/{t['name']}",
+                    "name": f"{db['database']}/{t['name']}",
+                    "table_id": t["id"],
+                    "source": db["workspace"],
+                    "workspace": db["workspace"],
+                    "database": db["database"],
+                    "table": t["name"],
+                }
+            )
+    return datasets
+
+
+def _find_in_sources(sources: list[BaserowSource], table_id: str) -> Optional[TableAccess]:
+    for source in sources:
+        if table_id in set(source.tables.values()):
+            return TableAccess(
+                url=source.url, token=source.token, department_field=source.department_field
+            )
+    return None
+
+
+def all_datasets() -> list[dict[str, str]]:
+    """全部数据集(供前端选择);优先级:网页配置 > 用户自动发现 > 环境变量。"""
+    _enabled()
+    web = _db_sources()
+    if web:
+        return _datasets_from_sources(web)
+    if _user_mode():
+        return _datasets_from_discovery()
+    return _datasets_from_sources(all_sources())
+
+
 def status() -> dict[str, Any]:
     """数据源状态(供前端提示与排错)。"""
     info: dict[str, Any] = {
@@ -202,7 +253,12 @@ def status() -> dict[str, Any]:
     if not settings.BASEROW_ENABLED:
         info["error"] = "Baserow 未启用(BASEROW_ENABLED=false)"
         return info
-    info["mode"] = "user" if _user_mode() else "token"
+    if _db_sources():
+        info["mode"] = "web"
+    elif _user_mode():
+        info["mode"] = "user"
+    else:
+        info["mode"] = "token"
     try:
         info["datasets"] = len(all_datasets())
     except BaserowError as exc:
@@ -212,6 +268,9 @@ def status() -> dict[str, Any]:
 
 def resolve_table(table_id: str) -> Optional[TableAccess]:
     """按表 ID 解析访问上下文(自动匹配令牌/会话)。"""
+    web = _db_sources()
+    if web:
+        return _find_in_sources(web, table_id)
     if _user_mode():
         for db in discover_databases():
             if any(t["id"] == table_id for t in db["tables"]):
@@ -221,12 +280,7 @@ def resolve_table(table_id: str) -> Optional[TableAccess]:
                     department_field=settings.BASEROW_DEPARTMENT_FIELD,
                 )
         return None
-    for source in all_sources():
-        if table_id in set(source.tables.values()):
-            return TableAccess(
-                url=source.url, token=source.token, department_field=source.department_field
-            )
-    return None
+    return _find_in_sources(all_sources(), table_id)
 
 
 # ---------------- 请求 ----------------
@@ -341,3 +395,23 @@ def update_row(
 def delete_row(access: TableAccess, table_id: str, row_id: int) -> None:
     _enabled()
     _handle(_request(access, "DELETE", f"/database/rows/table/{table_id}/{row_id}/"), "删除记录")
+
+
+def test_table(url: str, token: str, table_id: str) -> dict[str, Any]:
+    """测试数据源与表的连通性(不要求 BASEROW_ENABLED)。"""
+    access = TableAccess(url=url, token=token)
+    fields = _handle(_request(access, "GET", f"/database/fields/table/{table_id}/"), "测试")
+    rows = _handle(
+        _request(
+            access,
+            "GET",
+            f"/database/rows/table/{table_id}/",
+            params={"user_field_names": "true", "size": 1},
+        ),
+        "测试",
+    )
+    return {
+        "ok": True,
+        "count": rows.get("count", 0),
+        "fields": [f.get("name") for f in fields],
+    }

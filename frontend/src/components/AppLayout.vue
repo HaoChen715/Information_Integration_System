@@ -18,6 +18,7 @@ const navItems = computed(() => {
   if (auth.isAdmin) {
     items.push({ to: '/admin/roles', label: '角色管理' })
     items.push({ to: '/admin/departments', label: '部门管理' })
+    items.push({ to: '/admin/baserow', label: '数据源' })
   }
   return items
 })

@@ -59,6 +59,12 @@ const router = createRouter({
       meta: { admin: true },
     },
     {
+      path: '/admin/baserow',
+      name: 'admin-baserow',
+      component: () => import('../views/admin/AdminBaserowView.vue'),
+      meta: { admin: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

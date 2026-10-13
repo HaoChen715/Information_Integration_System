@@ -18,6 +18,7 @@ class BaserowSourceIn(BaseModel):
     url: str
     token: Optional[str] = None  # 新建必填;更新留空表示不变
     department_field: str = ""
+    departments: list[str] = []
     enabled: bool = True
     tables: list[BaserowTableIn] = []
 
@@ -29,6 +30,7 @@ class BaserowSourceOut(BaseModel):
     token_set: bool
     token_hint: str
     department_field: str
+    departments: list[str]
     enabled: bool
     tables: list[BaserowTableOut] = []
 

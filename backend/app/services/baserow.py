@@ -24,6 +24,7 @@ class BaserowSource:
     token: str
     tables: dict[str, str] = field(default_factory=dict)
     department_field: str = ""
+    departments: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -69,11 +70,18 @@ def _db_sources() -> list[BaserowSource]:
                 token=row.token,
                 tables={t.name: t.table_id for t in row.tables if t.enabled},
                 department_field=row.department_field,
+                departments=list(row.departments or []),
             )
             for row in rows
         ]
     finally:
         db.close()
+
+
+def _visible(source: BaserowSource, department: Optional[str], is_global: bool) -> bool:
+    if is_global or not source.departments:
+        return True
+    return bool(department) and department in source.departments
 
 
 def all_sources() -> list[BaserowSource]:
@@ -231,12 +239,15 @@ def _find_in_sources(sources: list[BaserowSource], table_id: str) -> Optional[Ta
     return None
 
 
-def all_datasets() -> list[dict[str, str]]:
+def all_datasets(
+    department: Optional[str] = None, is_global: bool = True
+) -> list[dict[str, str]]:
     """全部数据集(供前端选择);优先级:网页配置 > 用户自动发现 > 环境变量。"""
     _enabled()
     web = _db_sources()
     if web:
-        return _datasets_from_sources(web)
+        visible = [s for s in web if _visible(s, department, is_global)]
+        return _datasets_from_sources(visible)
     if _user_mode():
         return _datasets_from_discovery()
     return _datasets_from_sources(all_sources())
@@ -266,11 +277,22 @@ def status() -> dict[str, Any]:
     return info
 
 
-def resolve_table(table_id: str) -> Optional[TableAccess]:
-    """按表 ID 解析访问上下文(自动匹配令牌/会话)。"""
+def resolve_table(
+    table_id: str, department: Optional[str] = None, is_global: bool = True
+) -> Optional[TableAccess]:
+    """按表 ID 解析访问上下文(自动匹配令牌/会话;校验部门可见性)。"""
     web = _db_sources()
     if web:
-        return _find_in_sources(web, table_id)
+        for source in web:
+            if table_id in set(source.tables.values()):
+                if not _visible(source, department, is_global):
+                    return None
+                return TableAccess(
+                    url=source.url,
+                    token=source.token,
+                    department_field=source.department_field,
+                )
+        return None
     if _user_mode():
         for db in discover_databases():
             if any(t["id"] == table_id for t in db["tables"]):

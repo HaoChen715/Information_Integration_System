@@ -19,13 +19,13 @@ def _is_global(user: User) -> bool:
     return management_scope(user) == "all"
 
 
-def _access_for(table_id: str) -> TableAccess:
+def _access_for(table_id: str, user: User) -> TableAccess:
     try:
-        access = baserow.resolve_table(table_id)
+        access = baserow.resolve_table(table_id, user.department, _is_global(user))
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     if access is None:
-        raise HTTPException(status_code=404, detail="未知数据集")
+        raise HTTPException(status_code=404, detail="数据集不存在或无权访问")
     return access
 
 
@@ -82,9 +82,9 @@ def data_status(_: User = Depends(require_permission("data:view"))) -> dict[str,
 
 
 @router.get("/datasets", summary="数据集列表(自动发现/多源)")
-def datasets(_: User = Depends(require_permission("data:view"))) -> list[dict[str, str]]:
+def datasets(current: User = Depends(require_permission("data:view"))) -> list[dict[str, str]]:
     try:
-        return baserow.all_datasets()
+        return baserow.all_datasets(current.department, _is_global(current))
     except BaserowError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -92,9 +92,9 @@ def datasets(_: User = Depends(require_permission("data:view"))) -> list[dict[st
 @router.get("/tables/{table_id}/fields", summary="数据表字段")
 def table_fields(
     table_id: str,
-    _: User = Depends(require_permission("data:view")),
+    current: User = Depends(require_permission("data:view")),
 ) -> list[dict[str, Any]]:
-    access = _access_for(table_id)
+    access = _access_for(table_id, current)
     try:
         return baserow.list_fields(access, table_id)
     except BaserowError as exc:
@@ -110,7 +110,7 @@ def table_rows(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:view")),
 ) -> dict[str, Any]:
-    access = _access_for(table_id)
+    access = _access_for(table_id, current)
     dept_filter = _dept_filter(access, table_id, current)
     if dept_filter is None:
         return {"count": 0, "next": None, "previous": None, "results": []}
@@ -129,7 +129,7 @@ def create_row(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:create")),
 ) -> dict[str, Any]:
-    access = _access_for(table_id)
+    access = _access_for(table_id, current)
     body = dict(payload)
     if access.department_field and not _is_global(current) and current.department:
         body[access.department_field] = current.department
@@ -147,7 +147,7 @@ def update_row(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:edit")),
 ) -> dict[str, Any]:
-    access = _access_for(table_id)
+    access = _access_for(table_id, current)
     _assert_row_scope(access, table_id, row_id, current)
     try:
         return baserow.update_row(access, table_id, row_id, payload)
@@ -162,7 +162,7 @@ def delete_row(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:delete")),
 ) -> dict[str, bool]:
-    access = _access_for(table_id)
+    access = _access_for(table_id, current)
     _assert_row_scope(access, table_id, row_id, current)
     try:
         baserow.delete_row(access, table_id, row_id)

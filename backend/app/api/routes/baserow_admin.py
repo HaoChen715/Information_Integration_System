@@ -32,6 +32,7 @@ def _out(row: BaserowSourceConfig) -> BaserowSourceOut:
         token_set=bool(row.token),
         token_hint=f"****{row.token[-4:]}" if row.token else "",
         department_field=row.department_field,
+        departments=list(row.departments or []),
         enabled=row.enabled,
         tables=[
             BaserowTableOut(id=t.id, name=t.name, table_id=t.table_id, enabled=t.enabled)
@@ -84,6 +85,7 @@ def create_source(
         url=payload.url,
         token=payload.token,
         department_field=payload.department_field,
+        departments=payload.departments,
         enabled=payload.enabled,
     )
     for t in payload.tables:
@@ -117,6 +119,7 @@ def update_source(
     if payload.token:
         row.token = payload.token
     row.department_field = payload.department_field
+    row.departments = payload.departments
     row.enabled = payload.enabled
     row.tables.clear()
     db.flush()

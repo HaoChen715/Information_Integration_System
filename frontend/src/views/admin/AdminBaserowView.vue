@@ -7,13 +7,11 @@ import type { BaserowSource } from '../../api/baserow'
 
 const sources = ref<BaserowSource[]>([])
 const options = ref<baserowApi.BaserowOptions | null>(null)
-const fieldOptions = ref<string[]>([])
 const showForm = ref(false)
 const saving = ref(false)
 const message = ref('')
 const testMsg = ref('')
 const testing = ref(false)
-const loadingFields = ref(false)
 
 const form = ref({
   id: null as number | null,
@@ -21,6 +19,7 @@ const form = ref({
   url: '',
   token: '',
   department_field: '',
+  departments: [] as string[],
   enabled: true,
   tables: [] as { name: string; table_id: string; enabled: boolean }[],
 })
@@ -34,38 +33,16 @@ async function load() {
   }
 }
 
-async function loadFieldsForForm() {
-  fieldOptions.value = []
-  const t = form.value.tables.find((x) => x.table_id)
-  if (!t || !form.value.token) return
-  loadingFields.value = true
-  testMsg.value = ''
-  try {
-    const res = await baserowApi.fetchTableFields({
-      url: form.value.url,
-      token: form.value.token,
-      table_id: t.table_id,
-    })
-    fieldOptions.value = res.map((f) => f.name)
-  } catch (err: unknown) {
-    testMsg.value =
-      '获取字段失败:' +
-      ((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '')
-  } finally {
-    loadingFields.value = false
-  }
-}
-
 function startCreate() {
   message.value = ''
   testMsg.value = ''
-  fieldOptions.value = []
   form.value = {
     id: null,
     name: '',
     url: options.value?.default_url || '',
     token: '',
     department_field: '',
+    departments: [],
     enabled: true,
     tables: [{ name: '', table_id: '', enabled: true }],
   }
@@ -75,18 +52,23 @@ function startCreate() {
 function startEdit(src: BaserowSource) {
   message.value = ''
   testMsg.value = ''
-  fieldOptions.value = []
   form.value = {
     id: src.id,
     name: src.name,
     url: src.url,
     token: '',
     department_field: src.department_field,
+    departments: [...src.departments],
     enabled: src.enabled,
     tables: src.tables.map((t) => ({ name: t.name, table_id: t.table_id, enabled: t.enabled })),
   }
-  if (src.department_field) fieldOptions.value = [src.department_field]
   showForm.value = true
+}
+
+function toggleDepartment(name: string) {
+  const i = form.value.departments.indexOf(name)
+  if (i >= 0) form.value.departments.splice(i, 1)
+  else form.value.departments.push(name)
 }
 
 function addTable() {
@@ -114,7 +96,6 @@ async function testRow(i: number) {
       token: form.value.token,
       table_id: t.table_id,
     })
-    fieldOptions.value = res.fields
     testMsg.value = `✅ 连接成功:${res.count} 条数据,字段:${res.fields.join('、')}`
   } catch (err: unknown) {
     testMsg.value =
@@ -131,6 +112,7 @@ async function save() {
     name: form.value.name,
     url: form.value.url,
     department_field: form.value.department_field,
+    departments: form.value.departments,
     enabled: form.value.enabled,
     tables: form.value.tables.filter((t) => t.name && t.table_id),
     ...(form.value.token ? { token: form.value.token } : {}),
@@ -198,8 +180,8 @@ onMounted(load)
           </div>
         </div>
         <p class="mt-1 text-xs text-slate-400">
-          {{ src.url }} · 令牌 {{ src.token_hint || '未设置' }} · 部门字段
-          {{ src.department_field || '(不限制)' }}
+          {{ src.url }} · 令牌 {{ src.token_hint || '未设置' }} · 可见部门
+          {{ src.departments.length ? src.departments.join('、') : '全部' }}
         </p>
         <ul class="mt-3 space-y-1">
           <li
@@ -243,39 +225,40 @@ onMounted(load)
             </label>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <label class="block">
-              <span class="mb-1 block text-sm text-slate-600">
-                数据库令牌
-                <span v-if="form.id !== null" class="text-xs text-slate-400">(留空表示不修改)</span>
-              </span>
-              <input
-                v-model="form.token"
-                type="password"
-                placeholder="在该工作区「数据库令牌」处创建"
-                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-            </label>
-            <label class="block">
-              <span class="mb-1 flex items-center justify-between text-sm text-slate-600">
-                <span>部门字段(留空=不限制)</span>
+          <label class="block">
+            <span class="mb-1 block text-sm text-slate-600">
+              数据库令牌
+              <span v-if="form.id !== null" class="text-xs text-slate-400">(留空表示不修改)</span>
+            </span>
+            <input
+              v-model="form.token"
+              type="password"
+              placeholder="在该工作区「数据库令牌」处创建"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+
+          <div>
+            <span class="mb-1 block text-sm text-slate-600">可见部门(不选=所有部门均可见)</span>
+            <div class="flex flex-wrap gap-2">
+              <template v-if="options?.departments?.length">
                 <button
+                  v-for="d in options.departments"
+                  :key="d"
                   type="button"
-                  class="text-xs text-indigo-600 hover:underline disabled:opacity-50"
-                  :disabled="loadingFields"
-                  @click="loadFieldsForForm"
+                  class="rounded-full px-3 py-1 text-sm font-medium ring-1 transition"
+                  :class="
+                    form.departments.includes(d)
+                      ? 'bg-indigo-500 text-white ring-indigo-500'
+                      : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
+                  "
+                  @click="toggleDepartment(d)"
                 >
-                  {{ loadingFields ? '获取中...' : '获取字段' }}
+                  {{ d }}
                 </button>
-              </span>
-              <select
-                v-model="form.department_field"
-                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                <option value="">不限制</option>
-                <option v-for="f in fieldOptions" :key="f" :value="f">{{ f }}</option>
-              </select>
-            </label>
+              </template>
+              <span v-else class="text-xs text-slate-400">请先在「部门管理」里添加部门</span>
+            </div>
           </div>
 
           <label class="flex items-center gap-2 text-sm text-slate-600">

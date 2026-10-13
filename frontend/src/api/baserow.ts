@@ -14,6 +14,7 @@ export interface BaserowSource {
   token_set: boolean
   token_hint: string
   department_field: string
+  departments: string[]
   enabled: boolean
   tables: BaserowTable[]
 }
@@ -23,6 +24,7 @@ export interface SourcePayload {
   url: string
   token?: string
   department_field: string
+  departments: string[]
   enabled: boolean
   tables: { name: string; table_id: string; enabled: boolean }[]
 }

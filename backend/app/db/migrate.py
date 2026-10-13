@@ -12,6 +12,7 @@ _ADDED_COLUMNS = [
     ("roles", "is_system", "BOOLEAN NOT NULL DEFAULT 0"),
     ("roles", "is_admin", "BOOLEAN NOT NULL DEFAULT 0"),
     ("roles", "is_department_manager", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("baserow_sources", "departments", "TEXT"),
 ]
 
 

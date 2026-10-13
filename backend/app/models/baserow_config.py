@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import JSON, Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -19,6 +19,8 @@ class BaserowSourceConfig(Base):
     url: Mapped[str] = mapped_column(String(255), nullable=False)
     token: Mapped[str] = mapped_column(String(255), nullable=False)
     department_field: Mapped[str] = mapped_column(String(128), default="", nullable=False)
+    # 可见部门(部门管理里的部门名);为空表示所有部门可见
+    departments: Mapped[list] = mapped_column(JSON, default=list)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     tables: Mapped[list["BaserowTableConfig"]] = relationship(

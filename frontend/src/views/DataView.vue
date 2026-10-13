@@ -337,7 +337,14 @@ function normalizeValue(field: BaserowField, v: unknown): unknown {
 
 // ---- 维度分组(卡片面板) ----
 const dimension = ref('')
-const titleField = computed(() => fields.value[0])
+const titleField = computed(() => {
+  const tf = activeDataset.value?.title_field
+  if (tf) {
+    const f = fields.value.find((x) => x.name === tf)
+    if (f) return f
+  }
+  return fields.value[0]
+})
 const previewFields = computed(() => fields.value.filter((f) => f !== titleField.value).slice(0, 3))
 const groups = computed(() => {
   const df = fieldByName(dimension.value)

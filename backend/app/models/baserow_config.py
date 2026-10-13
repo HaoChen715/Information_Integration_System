@@ -39,4 +39,6 @@ class BaserowTableConfig(Base):
     )
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     table_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    # 卡片标题所用字段名(留空则取首列)
+    title_field: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

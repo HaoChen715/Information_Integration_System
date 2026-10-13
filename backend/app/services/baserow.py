@@ -25,6 +25,7 @@ class BaserowSource:
     tables: dict[str, str] = field(default_factory=dict)
     department_field: str = ""
     departments: list[str] = field(default_factory=list)
+    title_fields: dict[str, str] = field(default_factory=dict)  # table_id -> 标题字段
 
 
 @dataclass
@@ -71,6 +72,7 @@ def _db_sources() -> list[BaserowSource]:
                 tables={t.name: t.table_id for t in row.tables if t.enabled},
                 department_field=row.department_field,
                 departments=list(row.departments or []),
+                title_fields={t.table_id: (t.title_field or "") for t in row.tables if t.enabled},
             )
             for row in rows
         ]
@@ -207,6 +209,7 @@ def _datasets_from_sources(sources: list[BaserowSource]) -> list[dict[str, str]]
                     "workspace": source.key,
                     "database": "",
                     "table": name,
+                    "title_field": source.title_fields.get(table_id, ""),
                 }
             )
     return datasets
@@ -225,6 +228,7 @@ def _datasets_from_discovery() -> list[dict[str, str]]:
                     "workspace": db["workspace"],
                     "database": db["database"],
                     "table": t["name"],
+                    "title_field": "",
                 }
             )
     return datasets

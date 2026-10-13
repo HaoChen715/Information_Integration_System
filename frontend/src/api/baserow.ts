@@ -4,6 +4,7 @@ export interface BaserowTable {
   id?: number
   name: string
   table_id: string
+  title_field: string
   enabled: boolean
 }
 
@@ -26,7 +27,7 @@ export interface SourcePayload {
   department_field: string
   departments: string[]
   enabled: boolean
-  tables: { name: string; table_id: string; enabled: boolean }[]
+  tables: { name: string; table_id: string; title_field: string; enabled: boolean }[]
 }
 
 export interface TestResult {

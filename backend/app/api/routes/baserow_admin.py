@@ -35,7 +35,9 @@ def _out(row: BaserowSourceConfig) -> BaserowSourceOut:
         departments=list(row.departments or []),
         enabled=row.enabled,
         tables=[
-            BaserowTableOut(id=t.id, name=t.name, table_id=t.table_id, enabled=t.enabled)
+            BaserowTableOut(
+                id=t.id, name=t.name, table_id=t.table_id, title_field=t.title_field, enabled=t.enabled
+            )
             for t in row.tables
         ],
     )
@@ -89,7 +91,11 @@ def create_source(
         enabled=payload.enabled,
     )
     for t in payload.tables:
-        row.tables.append(BaserowTableConfig(name=t.name, table_id=t.table_id, enabled=t.enabled))
+        row.tables.append(
+            BaserowTableConfig(
+                name=t.name, table_id=t.table_id, title_field=t.title_field, enabled=t.enabled
+            )
+        )
     db.add(row)
     db.commit()
     db.refresh(row)
@@ -124,7 +130,11 @@ def update_source(
     row.tables.clear()
     db.flush()
     for t in payload.tables:
-        row.tables.append(BaserowTableConfig(name=t.name, table_id=t.table_id, enabled=t.enabled))
+        row.tables.append(
+            BaserowTableConfig(
+                name=t.name, table_id=t.table_id, title_field=t.title_field, enabled=t.enabled
+            )
+        )
     db.commit()
     db.refresh(row)
     return _out(row)

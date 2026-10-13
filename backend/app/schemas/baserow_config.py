@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class BaserowTableIn(BaseModel):
     name: str
     table_id: str
+    title_field: str = ""
     enabled: bool = True
 
 

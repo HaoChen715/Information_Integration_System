@@ -21,7 +21,7 @@ const form = ref({
   department_field: '',
   departments: [] as string[],
   enabled: true,
-  tables: [] as { name: string; table_id: string; enabled: boolean }[],
+  tables: [] as { name: string; table_id: string; title_field: string; enabled: boolean }[],
 })
 
 async function load() {
@@ -44,7 +44,7 @@ function startCreate() {
     department_field: '',
     departments: [],
     enabled: true,
-    tables: [{ name: '', table_id: '', enabled: true }],
+    tables: [{ name: '', table_id: '', title_field: '', enabled: true }],
   }
   showForm.value = true
 }
@@ -60,7 +60,7 @@ function startEdit(src: BaserowSource) {
     department_field: src.department_field,
     departments: [...src.departments],
     enabled: src.enabled,
-    tables: src.tables.map((t) => ({ name: t.name, table_id: t.table_id, enabled: t.enabled })),
+    tables: src.tables.map((t) => ({ name: t.name, table_id: t.table_id, title_field: t.title_field, enabled: t.enabled })),
   }
   showForm.value = true
 }
@@ -72,7 +72,7 @@ function toggleDepartment(name: string) {
 }
 
 function addTable() {
-  form.value.tables.push({ name: '', table_id: '', enabled: true })
+  form.value.tables.push({ name: '', table_id: '', title_field: '', enabled: true })
 }
 function removeTable(i: number) {
   form.value.tables.splice(i, 1)
@@ -284,7 +284,12 @@ onMounted(load)
                 <input
                   v-model="t.table_id"
                   placeholder="表 ID"
-                  class="w-28 rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                  class="w-24 rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+                />
+                <input
+                  v-model="t.title_field"
+                  placeholder="标题字段(默认首列)"
+                  class="w-40 rounded-md border border-slate-200 px-2 py-1.5 text-sm"
                 />
                 <label class="flex items-center gap-1 text-xs text-slate-500">
                   <input v-model="t.enabled" type="checkbox" class="h-3.5 w-3.5 accent-indigo-500" />启用

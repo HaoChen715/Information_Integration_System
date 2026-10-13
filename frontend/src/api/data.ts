@@ -22,6 +22,7 @@ export interface Dataset {
   workspace: string
   database: string
   table: string
+  title_field: string
 }
 
 export interface DataStatus {

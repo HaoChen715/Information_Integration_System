@@ -41,6 +41,11 @@ const SELECT_COLORS: Record<string, string> = {
   'dark-purple': '#7e22ce',
   'dark-pink': '#be185d',
   'dark-cyan': '#0e7490',
+  'dark-brown': '#78350f',
+  'dark-gray': '#475569',
+  teal: '#14b8a6',
+  lime: '#84cc16',
+  indigo: '#6366f1',
 }
 
 const PAGE_SIZE = 200
@@ -96,13 +101,19 @@ function cellLabel(field: BaserowField | undefined, value: unknown): string {
   return String(value)
 }
 
+function colorOf(name?: string): string {
+  if (!name) return '#64748b'
+  if (name.startsWith('#')) return name
+  return SELECT_COLORS[name] || '#64748b'
+}
+
 function pills(field: BaserowField, value: unknown): { value: string; color: string }[] {
   const list = field.type === 'multiple_select' ? (Array.isArray(value) ? value : []) : [value]
   const out: { value: string; color: string }[] = []
   for (const v of list) {
     if (v && typeof v === 'object' && 'value' in v) {
       const obj = v as { value: string; color?: string }
-      out.push({ value: obj.value, color: SELECT_COLORS[obj.color || 'gray'] || '#64748b' })
+      out.push({ value: obj.value, color: colorOf(obj.color) })
     }
   }
   return out

@@ -314,7 +314,14 @@ function removeFilter(field: string) {
 
 // ---- 编辑能力标记 ----
 function isEditable(field: BaserowField): boolean {
-  return !READONLY_TYPES.has(field.type) && field.type !== 'multiple_select'
+  return !READONLY_TYPES.has(field.type)
+}
+
+function normalizeValue(field: BaserowField, v: unknown): unknown {
+  if (field.type === 'multiple_select') return Array.isArray(v) ? v : []
+  if (field.type === 'number' && v !== '' && v !== null) return Number(v)
+  if (v === '') return null
+  return v
 }
 
 // ---- 维度分组(卡片面板) ----
@@ -365,6 +372,8 @@ function startDetailEdit() {
     if (f.type === 'boolean') initForm[f.name] = Boolean(v)
     else if (f.type === 'single_select')
       initForm[f.name] = v && typeof v === 'object' ? (v as { id: number }).id : ''
+    else if (f.type === 'multiple_select')
+      initForm[f.name] = Array.isArray(v) ? v.map((x) => (x as { id: number }).id) : []
     else initForm[f.name] = v ?? ''
   }
   detailForm.value = initForm
@@ -380,10 +389,7 @@ async function saveDetail() {
   try {
     const payload: Record<string, unknown> = {}
     for (const f of editableFields.value) {
-      let v = detailForm.value[f.name]
-      if (f.type === 'number' && v !== '' && v !== null) v = Number(v)
-      if (v === '') v = null
-      payload[f.name] = v
+      payload[f.name] = normalizeValue(f, detailForm.value[f.name])
     }
     const updated = await dataApi.updateRow(ds.table_id, row.id as number, payload)
     Object.assign(row, updated)
@@ -418,7 +424,8 @@ const editableFields = computed(() => fields.value.filter(isEditable))
 
 function openCreate() {
   const initForm: Record<string, unknown> = {}
-  for (const f of editableFields.value) initForm[f.name] = f.type === 'boolean' ? false : ''
+  for (const f of editableFields.value)
+    initForm[f.name] = f.type === 'boolean' ? false : f.type === 'multiple_select' ? [] : ''
   const deptField = fields.value.find((f) => f.type === 'single_select' && f.name.includes('部门'))
   if (deptField && auth.user?.department) {
     const opt = deptField.select_options?.find((o) => o.value === auth.user?.department)
@@ -437,10 +444,7 @@ async function save() {
   try {
     const payload: Record<string, unknown> = {}
     for (const f of editableFields.value) {
-      let v = form.value[f.name]
-      if (f.type === 'number' && v !== '' && v !== null) v = Number(v)
-      if (v === '') v = null
-      payload[f.name] = v
+      payload[f.name] = normalizeValue(f, form.value[f.name])
     }
     await dataApi.createRow(ds.table_id, payload)
     showEditor.value = false
@@ -820,6 +824,21 @@ async function save() {
                   <option value="">（空）</option>
                   <option v-for="o in f.select_options" :key="o.id" :value="o.id">{{ o.value }}</option>
                 </select>
+                <div v-else-if="f.type === 'multiple_select'" class="flex flex-wrap gap-2">
+                  <label
+                    v-for="o in f.select_options"
+                    :key="o.id"
+                    class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-white"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="o.id"
+                      v-model="detailForm[f.name]"
+                      class="h-3.5 w-3.5 accent-indigo-500"
+                    />
+                    {{ o.value }}
+                  </label>
+                </div>
                 <input
                   v-else-if="f.type === 'boolean'"
                   v-model="detailForm[f.name]"
@@ -912,6 +931,16 @@ async function save() {
               <option value="">（空）</option>
               <option v-for="o in f.select_options" :key="o.id" :value="o.id">{{ o.value }}</option>
             </select>
+            <div v-else-if="f.type === 'multiple_select'" class="flex flex-wrap gap-2">
+              <label
+                v-for="o in f.select_options"
+                :key="o.id"
+                class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                <input type="checkbox" :value="o.id" v-model="form[f.name]" class="h-3.5 w-3.5 accent-indigo-500" />
+                {{ o.value }}
+              </label>
+            </div>
             <input v-else-if="f.type === 'boolean'" v-model="form[f.name]" type="checkbox" class="h-4 w-4 accent-indigo-500" />
             <input v-else-if="f.type === 'number'" v-model="form[f.name]" type="number" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             <input v-else-if="f.type === 'date'" v-model="form[f.name]" type="date" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />

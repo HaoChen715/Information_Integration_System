@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import AppLayout from '../components/AppLayout.vue'
 import * as dataApi from '../api/data'
@@ -312,40 +312,87 @@ function removeFilter(field: string) {
   confirmed.value = next
 }
 
-// ---- 内联编辑 ----
-const editCell = ref<{ rowId: number; field: string } | null>(null)
-const editValue = ref<unknown>('')
-const cellInput = ref<HTMLInputElement | null>(null)
-
+// ---- 编辑能力标记 ----
 function isEditable(field: BaserowField): boolean {
   return !READONLY_TYPES.has(field.type) && field.type !== 'multiple_select'
 }
 
-function startEdit(row: Record<string, unknown>, field: BaserowField) {
-  if (!canEdit.value || !isEditable(field)) return
-  editCell.value = { rowId: row.id as number, field: field.name }
-  const v = row[field.name]
-  if (field.type === 'boolean') editValue.value = Boolean(v)
-  else if (field.type === 'single_select') editValue.value = v && typeof v === 'object' ? (v as { id: number }).id : ''
-  else editValue.value = v ?? ''
-  nextTick(() => cellInput.value?.focus())
+// ---- 维度分组(卡片面板) ----
+const dimension = ref('')
+const titleField = computed(() => fields.value[0])
+const previewFields = computed(() => fields.value.filter((f) => f !== titleField.value).slice(0, 3))
+const groups = computed(() => {
+  const df = fieldByName(dimension.value)
+  if (!df) return [{ key: '_', label: '全部', rows: filteredRows.value }]
+  const map = new Map<string, Record<string, unknown>[]>()
+  for (const row of filteredRows.value) {
+    const label = cellLabel(df, row[df.name]) || '（空）'
+    if (!map.has(label)) map.set(label, [])
+    map.get(label)!.push(row)
+  }
+  return [...map.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([label, rows]) => ({ key: label, label, rows }))
+})
+
+function enterDisplay() {
+  const firstFilter = Object.keys(confirmed.value)[0]
+  dimension.value = firstFilter || fields.value[0]?.name || ''
+  stage.value = 'display'
 }
 
-async function commitEdit(row: Record<string, unknown>, field: BaserowField) {
-  const cell = editCell.value
-  if (!cell || cell.rowId !== row.id || cell.field !== field.name) return
-  editCell.value = null
+// ---- 详情大面板 ----
+const detailRow = ref<Record<string, unknown> | null>(null)
+const detailEdit = ref(false)
+const detailForm = ref<Record<string, unknown>>({})
+const detailSaving = ref(false)
+const detailMsg = ref('')
+
+function openDetail(row: Record<string, unknown>) {
+  detailRow.value = row
+  detailEdit.value = false
+  detailMsg.value = ''
+}
+function closeDetail() {
+  detailRow.value = null
+  detailEdit.value = false
+}
+function startDetailEdit() {
+  if (!detailRow.value) return
+  const initForm: Record<string, unknown> = {}
+  for (const f of editableFields.value) {
+    const v = detailRow.value[f.name]
+    if (f.type === 'boolean') initForm[f.name] = Boolean(v)
+    else if (f.type === 'single_select')
+      initForm[f.name] = v && typeof v === 'object' ? (v as { id: number }).id : ''
+    else initForm[f.name] = v ?? ''
+  }
+  detailForm.value = initForm
+  detailMsg.value = ''
+  detailEdit.value = true
+}
+async function saveDetail() {
   const ds = activeDataset.value
-  if (!ds) return
-  let v = editValue.value
-  if (field.type === 'number' && v !== '' && v !== null) v = Number(v)
-  if (v === '') v = null
+  const row = detailRow.value
+  if (!ds || !row) return
+  detailSaving.value = true
+  detailMsg.value = ''
   try {
-    const updated = await dataApi.updateRow(ds.table_id, row.id as number, { [field.name]: v })
+    const payload: Record<string, unknown> = {}
+    for (const f of editableFields.value) {
+      let v = detailForm.value[f.name]
+      if (f.type === 'number' && v !== '' && v !== null) v = Number(v)
+      if (v === '') v = null
+      payload[f.name] = v
+    }
+    const updated = await dataApi.updateRow(ds.table_id, row.id as number, payload)
     Object.assign(row, updated)
+    detailEdit.value = false
   } catch (err: unknown) {
-    message.value =
+    detailMsg.value =
       (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '保存失败'
+  } finally {
+    detailSaving.value = false
   }
 }
 
@@ -355,6 +402,7 @@ async function removeRow(row: Record<string, unknown>) {
   if (!confirm('确认删除该行数据?')) return
   try {
     await dataApi.deleteRow(ds.table_id, row.id as number)
+    closeDetail()
     await loadRows()
   } catch (err: unknown) {
     alert((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '删除失败')
@@ -568,105 +616,58 @@ async function save() {
           <p class="mt-3 text-center text-xs text-slate-400">点击分区可按该值下钻筛选</p>
         </div>
 
-        <!-- 右:现代数据表格 -->
-        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
-          <div class="overflow-x-auto">
-            <table class="w-full table-auto border-collapse text-sm">
-              <thead>
-                <tr class="bg-slate-50/80">
-                  <th
-                    v-for="f in fields"
-                    :key="f.id"
-                    class="sticky top-0 whitespace-nowrap border-b border-slate-200 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
-                  >
-                    {{ f.name }}
-                  </th>
-                  <th v-if="canDelete" class="sticky top-0 border-b border-slate-200 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="row in filteredRows"
+        <!-- 右:卡片面板(按维度分组) -->
+        <div class="lg:col-span-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm font-semibold text-slate-700">数据面板</span>
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+              维度
+              <select v-model="dimension" class="rounded-lg border border-slate-200 px-2 py-1.5 text-sm">
+                <option value="">（不分组）</option>
+                <option v-for="f in fields" :key="f.id" :value="f.name">{{ f.name }}</option>
+              </select>
+            </label>
+            <span class="text-xs text-slate-400">共 {{ filteredRows.length }} 条 · {{ groups.length }} 组</span>
+          </div>
+
+          <div
+            v-if="!filteredRows.length"
+            class="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center text-slate-400"
+          >
+            无匹配数据
+          </div>
+
+          <div v-else class="mt-4 space-y-6">
+            <div v-for="g in groups" :key="g.key">
+              <div class="mb-2 flex items-center gap-2">
+                <span class="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-white">{{ g.label }}</span>
+                <span class="text-xs text-slate-400">{{ g.rows.length }} 条</span>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                <button
+                  v-for="row in g.rows"
                   :key="String(row.id)"
-                  class="group border-b border-slate-100 transition hover:bg-indigo-50/40"
+                  class="group relative flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition duration-200 hover:z-10 hover:-translate-y-0.5 hover:scale-[1.04] hover:border-indigo-300 hover:shadow-xl"
+                  @click="openDetail(row)"
                 >
-                  <td
-                    v-for="f in fields"
-                    :key="f.id"
-                    class="max-w-[22rem] px-3 py-2 align-top text-slate-700 [overflow-wrap:anywhere]"
-                    :class="isEditable(f) && canEdit ? 'cursor-text' : ''"
-                    @dblclick="startEdit(row, f)"
-                  >
-                    <template v-if="editCell?.rowId === row.id && editCell?.field === f.name">
-                      <select
-                        v-if="f.type === 'single_select'"
-                        v-model="editValue"
-                        class="rounded border border-indigo-300 px-1 py-0.5 text-sm"
-                        @change="commitEdit(row, f)"
-                        @blur="commitEdit(row, f)"
-                      >
-                        <option value="">（空）</option>
-                        <option v-for="o in f.select_options" :key="o.id" :value="o.id">{{ o.value }}</option>
-                      </select>
-                      <input
-                        v-else-if="f.type === 'boolean'"
-                        type="checkbox"
-                        v-model="editValue"
-                        class="h-4 w-4 accent-indigo-500"
-                        @change="commitEdit(row, f)"
-                        @blur="commitEdit(row, f)"
-                      />
-                      <input
-                        v-else
-                        ref="cellInput"
-                        v-model="editValue"
-                        :type="f.type === 'number' ? 'number' : 'text'"
-                        class="w-32 rounded border border-indigo-300 px-1 py-0.5 text-sm"
-                        @keyup.enter="commitEdit(row, f)"
-                        @blur="commitEdit(row, f)"
-                      />
-                    </template>
-                    <template v-else>
-                      <span
-                        v-if="f.type === 'single_select' || f.type === 'multiple_select'"
-                        class="inline-flex flex-wrap gap-1"
-                      >
-                        <span
-                          v-for="(p, pi) in pills(f, row[f.name])"
-                          :key="pi"
-                          class="rounded-full px-2 py-0.5 text-xs font-medium"
-                          :style="{ background: p.color + '22', color: p.color }"
-                        >
-                          {{ p.value }}
-                        </span>
-                        <span v-if="!pills(f, row[f.name]).length" class="text-slate-300">—</span>
-                      </span>
-                      <span v-else-if="f.type === 'boolean'" class="text-slate-600">
-                        {{ row[f.name] ? '✓' : '—' }}
-                      </span>
-                      <span v-else>{{ cellLabel(f, row[f.name]) || '—' }}</span>
-                    </template>
-                  </td>
-                  <td v-if="canDelete" class="whitespace-nowrap px-4 py-2.5">
-                    <button
-                      class="text-xs text-red-500 opacity-0 transition group-hover:opacity-100 hover:underline"
-                      @click="removeRow(row)"
-                    >
-                      删除
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="!loading && !filteredRows.length">
-                  <td :colspan="fields.length + 1" class="px-4 py-14 text-center text-slate-400">无匹配数据</td>
-                </tr>
-              </tbody>
-            </table>
+                  <p class="truncate text-base font-semibold text-slate-800">
+                    {{ cellLabel(titleField, row[titleField?.name || '']) || '未命名' }}
+                  </p>
+                  <div class="space-y-1">
+                    <p v-for="f in previewFields" :key="f.id" class="flex items-center gap-1.5 text-xs">
+                      <span class="shrink-0 text-slate-400">{{ f.name }}</span>
+                      <span class="truncate text-slate-600">{{ cellLabel(f, row[f.name]) || '—' }}</span>
+                    </p>
+                  </div>
+                  <span class="mt-1 text-[11px] text-indigo-500 opacity-0 transition group-hover:opacity-100">
+                    查看详情 →
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <p v-if="canEdit" class="mt-3 text-center text-xs text-slate-400">提示:双击单元格可直接编辑</p>
     </template>
 
     <!-- 筛选/跳转阶段:保留左侧数据源树 -->
@@ -777,7 +778,7 @@ async function save() {
           <div class="mt-6 flex items-center gap-3">
             <button
               class="rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 px-5 py-2 text-sm font-medium text-white shadow hover:opacity-90"
-              @click="stage = 'display'"
+              @click="enterDisplay"
             >
               进入数据展示 →
             </button>
@@ -785,6 +786,114 @@ async function save() {
               返回调整
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 详情大面板 -->
+    <div
+      v-if="detailRow"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      @click.self="closeDetail"
+    >
+      <div class="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-slate-800">
+              {{ cellLabel(titleField, detailRow[titleField?.name || '']) || '记录详情' }}
+            </h2>
+            <p class="mt-0.5 text-xs text-slate-400">完整数据信息</p>
+          </div>
+          <button class="text-slate-400 hover:text-slate-600" @click="closeDetail">✕</button>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div v-for="f in fields" :key="f.id" class="rounded-xl border border-slate-100 bg-slate-50/40 p-3">
+            <p class="text-xs font-medium text-slate-400">{{ f.name }}</p>
+            <div class="mt-1 text-sm text-slate-700">
+              <template v-if="detailEdit && isEditable(f)">
+                <select
+                  v-if="f.type === 'single_select'"
+                  v-model="detailForm[f.name]"
+                  class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                >
+                  <option value="">（空）</option>
+                  <option v-for="o in f.select_options" :key="o.id" :value="o.id">{{ o.value }}</option>
+                </select>
+                <input
+                  v-else-if="f.type === 'boolean'"
+                  v-model="detailForm[f.name]"
+                  type="checkbox"
+                  class="h-4 w-4 accent-indigo-500"
+                />
+                <input
+                  v-else-if="f.type === 'number'"
+                  v-model="detailForm[f.name]"
+                  type="number"
+                  class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                />
+                <input
+                  v-else
+                  v-model="detailForm[f.name]"
+                  type="text"
+                  class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                />
+              </template>
+              <template v-else>
+                <span
+                  v-if="f.type === 'single_select' || f.type === 'multiple_select'"
+                  class="inline-flex flex-wrap gap-1"
+                >
+                  <span
+                    v-for="(p, pi) in pills(f, detailRow[f.name])"
+                    :key="pi"
+                    class="rounded-full px-2 py-0.5 text-xs font-medium"
+                    :style="{ background: p.color + '22', color: p.color }"
+                  >
+                    {{ p.value }}
+                  </span>
+                  <span v-if="!pills(f, detailRow[f.name]).length" class="text-slate-300">—</span>
+                </span>
+                <span v-else-if="f.type === 'boolean'">{{ detailRow[f.name] ? '✓ 是' : '— 否' }}</span>
+                <span v-else>{{ cellLabel(f, detailRow[f.name]) || '—' }}</span>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center gap-3">
+          <template v-if="detailEdit">
+            <button
+              class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50"
+              :disabled="detailSaving"
+              @click="saveDetail"
+            >
+              {{ detailSaving ? '保存中...' : '保存' }}
+            </button>
+            <button class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600" @click="detailEdit = false">
+              取消
+            </button>
+          </template>
+          <template v-else>
+            <button
+              v-if="canEdit"
+              class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
+              @click="startDetailEdit"
+            >
+              编辑
+            </button>
+            <button
+              v-if="canDelete"
+              class="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+              @click="removeRow(detailRow)"
+            >
+              删除
+            </button>
+            <button class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600" @click="closeDetail">
+              关闭
+            </button>
+          </template>
+          <span v-if="detailMsg" class="text-sm text-red-500">{{ detailMsg }}</span>
         </div>
       </div>
     </div>

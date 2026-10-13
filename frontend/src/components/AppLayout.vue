@@ -5,8 +5,14 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import UserAvatar from './UserAvatar.vue'
 
+const props = withDefaults(defineProps<{ wide?: boolean }>(), { wide: false })
+
 const auth = useAuthStore()
 const router = useRouter()
+
+const mainClass = computed(() =>
+  props.wide ? 'mx-auto max-w-[1800px] px-4 py-6' : 'mx-auto max-w-6xl px-6 py-8',
+)
 
 const navItems = computed(() => {
   const items: { to: string; label: string }[] = [
@@ -81,7 +87,7 @@ function handleLogout() {
       </div>
     </header>
 
-    <main class="mx-auto max-w-6xl px-6 py-8">
+    <main :class="mainClass">
       <slot />
     </main>
   </div>

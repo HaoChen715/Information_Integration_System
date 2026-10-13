@@ -407,7 +407,7 @@ async function save() {
 </script>
 
 <template>
-  <AppLayout>
+  <AppLayout :wide="stage === 'display'">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">数据看板</h1>
@@ -480,7 +480,7 @@ async function save() {
         </div>
       </div>
 
-      <div class="mt-6 grid gap-6 lg:grid-cols-3">
+      <div class="mt-6 grid gap-6 lg:grid-cols-4">
         <!-- 左:分布分析 -->
         <div class="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-1">
           <div class="flex items-center justify-between">
@@ -569,19 +569,19 @@ async function save() {
         </div>
 
         <!-- 右:现代数据表格 -->
-        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-3">
           <div class="overflow-x-auto">
-            <table class="w-full border-collapse text-sm">
+            <table class="w-full table-auto border-collapse text-sm">
               <thead>
                 <tr class="bg-slate-50/80">
                   <th
                     v-for="f in fields"
                     :key="f.id"
-                    class="sticky top-0 whitespace-nowrap border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    class="sticky top-0 whitespace-nowrap border-b border-slate-200 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
                   >
                     {{ f.name }}
                   </th>
-                  <th v-if="canDelete" class="sticky top-0 border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th v-if="canDelete" class="sticky top-0 border-b border-slate-200 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     操作
                   </th>
                 </tr>
@@ -595,7 +595,7 @@ async function save() {
                   <td
                     v-for="f in fields"
                     :key="f.id"
-                    class="whitespace-nowrap px-4 py-2.5 text-slate-700 align-middle"
+                    class="max-w-[22rem] px-3 py-2 align-top text-slate-700 [overflow-wrap:anywhere]"
                     :class="isEditable(f) && canEdit ? 'cursor-text' : ''"
                     @dblclick="startEdit(row, f)"
                   >

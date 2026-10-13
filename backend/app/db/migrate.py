@@ -16,6 +16,11 @@ _ADDED_COLUMNS = [
     ("baserow_tables", "title_field", "VARCHAR(128)"),
 ]
 
+# (表, 列, 回填默认值 SQL 字面量)
+_BACKFILLS = [
+    ("baserow_tables", "title_field", "''"),
+]
+
 
 def ensure_columns(engine: Engine) -> None:
     inspector = inspect(engine)
@@ -28,3 +33,12 @@ def ensure_columns(engine: Engine) -> None:
             continue
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+
+    # 回填历史 NULL(新增列在旧行上为 NULL,归一为默认值)
+    for table, column, default in _BACKFILLS:
+        if table not in tables:
+            continue
+        with engine.begin() as conn:
+            conn.execute(
+                text(f"UPDATE {table} SET {column} = {default} WHERE {column} IS NULL")
+            )

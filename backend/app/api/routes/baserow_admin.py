@@ -36,7 +36,11 @@ def _out(row: BaserowSourceConfig) -> BaserowSourceOut:
         enabled=row.enabled,
         tables=[
             BaserowTableOut(
-                id=t.id, name=t.name, table_id=t.table_id, title_field=t.title_field, enabled=t.enabled
+                id=t.id,
+                name=t.name,
+                table_id=t.table_id,
+                title_field=t.title_field or "",
+                enabled=t.enabled,
             )
             for t in row.tables
         ],

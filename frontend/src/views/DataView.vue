@@ -23,29 +23,46 @@ const READONLY_TYPES = new Set([
 ])
 
 const SELECT_COLORS: Record<string, string> = {
-  blue: '#3b82f6',
-  green: '#22c55e',
-  red: '#ef4444',
-  orange: '#f97316',
-  yellow: '#eab308',
-  purple: '#a855f7',
-  pink: '#ec4899',
-  cyan: '#06b6d4',
-  gray: '#64748b',
-  brown: '#92400e',
-  'dark-green': '#15803d',
-  'dark-blue': '#1d4ed8',
-  'dark-red': '#b91c1c',
-  'dark-orange': '#c2410c',
-  'dark-yellow': '#a16207',
-  'dark-purple': '#7e22ce',
-  'dark-pink': '#be185d',
-  'dark-cyan': '#0e7490',
-  'dark-brown': '#78350f',
-  'dark-gray': '#475569',
-  teal: '#14b8a6',
-  lime: '#84cc16',
-  indigo: '#6366f1',
+  'light-blue': '#f0f4fc',
+  'light-green': '#ecfcf1',
+  'light-cyan': '#cff5fa',
+  'light-yellow': '#fffbf0',
+  'light-orange': '#fffbf0',
+  'light-red': '#fff2f0',
+  'light-brown': '#f5e6dc',
+  'light-purple': '#f9f1fd',
+  'light-pink': '#f7e1f2',
+  'light-gray': '#f5f5f5',
+  blue: '#dae4fd',
+  green: '#d0f6dc',
+  cyan: '#a0ebf5',
+  yellow: '#ffe9b4',
+  orange: '#fff4da',
+  red: '#ffdeda',
+  brown: '#f5ceb0',
+  purple: '#dfb9f7',
+  pink: '#f7b2e7',
+  gray: '#d7d8d9',
+  'dark-blue': '#acc8f8',
+  'dark-green': '#a0eeba',
+  'dark-cyan': '#70e0ef',
+  'dark-yellow': '#ffdd8f',
+  'dark-orange': '#ffe9b4',
+  'dark-red': '#ffbdb4',
+  'dark-brown': '#f5c098',
+  'dark-purple': '#cf96f2',
+  'dark-pink': '#f285d9',
+  'dark-gray': '#b5b5b7',
+  'darker-blue': '#689ef1',
+  'darker-green': '#41dd75',
+  'darker-cyan': '#41d6ea',
+  'darker-yellow': '#ffd269',
+  'darker-orange': '#ffd269',
+  'darker-red': '#ff7b69',
+  'darker-brown': '#f5a96e',
+  'darker-purple': '#bf73ee',
+  'darker-pink': '#ff6dde',
+  'darker-gray': '#b5b5b7',
 }
 
 const PAGE_SIZE = 200
@@ -102,9 +119,12 @@ function cellLabel(field: BaserowField | undefined, value: unknown): string {
 }
 
 function colorOf(name?: string): string {
-  if (!name) return '#64748b'
+  if (!name) return '#d7d8d9'
   if (name.startsWith('#')) return name
-  return SELECT_COLORS[name] || '#64748b'
+  if (SELECT_COLORS[name]) return SELECT_COLORS[name]
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
+  return `hsl(${h} 70% 88%)`
 }
 
 function pills(field: BaserowField, value: unknown): { value: string; color: string }[] {
@@ -678,7 +698,21 @@ async function save() {
                   <div class="space-y-1">
                     <p v-for="f in previewFields" :key="f.id" class="flex items-center gap-1.5 text-xs">
                       <span class="shrink-0 text-slate-400">{{ f.name }}</span>
-                      <span class="truncate text-slate-600">{{ cellLabel(f, row[f.name]) || '—' }}</span>
+                      <span
+                        v-if="f.type === 'single_select' || f.type === 'multiple_select'"
+                        class="inline-flex flex-wrap gap-1"
+                      >
+                        <span
+                          v-for="(p, pi) in pills(f, row[f.name])"
+                          :key="pi"
+                          class="rounded-full px-1.5 py-0.5 text-[11px] font-medium"
+                          :style="{ background: p.color, color: '#1f2937' }"
+                        >
+                          {{ p.value }}
+                        </span>
+                        <span v-if="!pills(f, row[f.name]).length" class="text-slate-400">—</span>
+                      </span>
+                      <span v-else class="truncate text-slate-600">{{ cellLabel(f, row[f.name]) || '—' }}</span>
                     </p>
                   </div>
                   <span class="mt-1 text-[11px] text-indigo-500 opacity-0 transition group-hover:opacity-100">
@@ -885,7 +919,7 @@ async function save() {
                     v-for="(p, pi) in pills(f, detailRow[f.name])"
                     :key="pi"
                     class="rounded-full px-2 py-0.5 text-xs font-medium"
-                    :style="{ background: p.color + '22', color: p.color }"
+                    :style="{ background: p.color, color: '#1f2937' }"
                   >
                     {{ p.value }}
                   </span>

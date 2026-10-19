@@ -19,10 +19,11 @@ const members = ref<DepartmentMember[]>([])
 const selectedDept = ref('')
 
 const baseCards = [
-  { title: '数据看板', desc: '查看并编辑 Baserow 数据', to: '/department/data', perm: 'data:view' },
-  { title: '任务中心', desc: '待办与任务流转', to: '', perm: '' },
-  { title: '公告通知', desc: '部门公告与消息', to: '', perm: '' },
-  { title: '文档库', desc: '共享文档与资料', to: '', perm: '' },
+  { title: '数据看板', desc: '查看并编辑 Baserow 数据', to: '/department/data', href: '', external: false, perm: 'data:view' },
+  { title: '行情监控系统', desc: '基差/跨期价差与证券行情监控、告警', to: '', href: '/monitor/', external: true, perm: '' },
+  { title: '任务中心', desc: '待办与任务流转', to: '', href: '', external: false, perm: '' },
+  { title: '公告通知', desc: '部门公告与消息', to: '', href: '', external: false, perm: '' },
+  { title: '文档库', desc: '共享文档与资料', to: '', href: '', external: false, perm: '' },
 ]
 const cards = computed(() => baseCards.filter((c) => !c.perm || auth.hasPermission(c.perm)))
 
@@ -170,16 +171,19 @@ onMounted(async () => {
           <p class="relative mt-0.5 text-xs text-white/60">后续将作为各功能页面的跳转入口</p>
           <div class="relative mt-5 grid gap-4 sm:grid-cols-2">
             <component
-              :is="card.to ? 'RouterLink' : 'div'"
+              :is="card.external ? 'a' : card.to ? 'RouterLink' : 'div'"
               v-for="card in cards"
               :key="card.title"
               :to="card.to || undefined"
+              :href="card.external ? card.href : undefined"
+              :target="card.external ? '_blank' : undefined"
+              :rel="card.external ? 'noopener' : undefined"
               class="group rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition hover:bg-white/20"
             >
               <p class="font-semibold text-white">{{ card.title }}</p>
               <p class="mt-1 text-xs text-white/70">{{ card.desc }}</p>
               <span class="mt-4 inline-block text-xs text-white/50 group-hover:text-white/80">
-                {{ card.to ? '进入 →' : '敬请期待 →' }}
+                {{ card.external ? '打开系统 ↗' : card.to ? '进入 →' : '敬请期待 →' }}
               </span>
             </component>
           </div>

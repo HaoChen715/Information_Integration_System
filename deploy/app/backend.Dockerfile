@@ -16,6 +16,7 @@ RUN pdm install --prod --frozen-lockfile
 # 再复制业务代码
 COPY backend/app ./app
 COPY backend/scripts ./scripts
+COPY backend/third_party ./third_party
 
 RUN mkdir -p /app/data
 

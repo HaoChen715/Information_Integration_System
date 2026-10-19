@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     AVATAR_DIR: str = "./data/avatars"
     AVATAR_MAX_MB: int = 2
 
+    # ---- 行情监控(内置 basis_monitor 子应用,挂载于 /monitor) ----
+    MONITOR_ENABLED: bool = True
+    MONITOR_START_ENGINE: bool = True
+
     # ---- Baserow 数据源 ----
     BASEROW_ENABLED: bool = False
     # 单源配置(兼容旧配置;若配置了 BASEROW_SOURCES 则忽略)

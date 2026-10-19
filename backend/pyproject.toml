@@ -17,6 +17,9 @@ dependencies = [
     "ldap3>=2.9.1",
     "httpx>=0.28.1",
     "cryptography>=43.0.3",
+    "flask>=3.0",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
 ]
 
 [tool.pdm]

@@ -271,7 +271,7 @@
   <button data-tab="market">实时行情</button>
   <button data-tab="charts">价格走势</button>
   <button data-tab="alerts">告警日志</button>
-  <button data-tab="users" class="admin-only" style="display:none">用户管理</button>
+  <button data-tab="users" style="display:none">用户管理</button>
   <button data-tab="settings" class="admin-only" style="display:none">系统设置</button>
 </nav>
 
@@ -653,9 +653,11 @@ async function login(e) {
   }
 }
 async function logout() {
-  try { await api("api/logout", { method: "POST" }); } catch (e) {}
-  _me = null;
-  showLogin();
+  try {
+    document.cookie = "iis_token=; Path=/; Max-Age=0";
+    localStorage.removeItem("iis_token");
+  } catch (e) {}
+  location.href = "/login";
 }
 
 // ------------------------------------------------------- 角色渲染
@@ -676,7 +678,6 @@ async function bootApp() {
   showApp();
   await loadRules();
   await loadConfigMeta();
-  if (_role === "admin") loadUsers();
   loadStatus();
   if (!_statusTimer) _statusTimer = setInterval(loadStatus, 3000);
   scheduleMarketRefresh();

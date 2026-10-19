@@ -22,6 +22,7 @@ RESOURCE_LABELS = {
     "role": "角色管理",
     "record": "资料数据",
     "data": "数据看板",
+    "monitor": "行情监控",
 }
 
 # 权限目录:(code, 名称, 资源, 操作)
@@ -43,6 +44,10 @@ PERMISSION_CATALOG = [
     ("data:create", "新增数据", "data", "create"),
     ("data:edit", "编辑数据", "data", "edit"),
     ("data:delete", "删除数据", "data", "delete"),
+    ("monitor:view", "查看行情监控", "monitor", "view"),
+    ("monitor:create", "新增监控规则", "monitor", "create"),
+    ("monitor:edit", "编辑监控规则", "monitor", "edit"),
+    ("monitor:delete", "删除监控规则", "monitor", "delete"),
 ]
 
 

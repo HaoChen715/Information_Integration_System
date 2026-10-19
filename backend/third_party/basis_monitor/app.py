@@ -98,14 +98,35 @@ def create_app():
     app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
     # ------------------------------------------------------------ 认证辅助
+    from urllib.parse import unquote
+
+    def _scope(name):
+        return request.headers.get(name, "")
+
     def current_user():
-        return session.get("user")
+        raw = request.headers.get("X-IIS-User", "")
+        return unquote(raw) if raw else None
 
     def current_role():
-        return session.get("role", ROLE_ADMIN)
+        return request.headers.get("X-IIS-Role", ROLE_ADMIN)
 
     def is_admin():
         return current_role() == ROLE_ADMIN
+
+    def _dept_owners():
+        raw = unquote(request.headers.get("X-IIS-Dept-Owners", ""))
+        return set(filter(None, raw.split(",")))
+
+    def _scope_allows(scope, rule):
+        if scope == "all":
+            return True
+        me = current_user()
+        owner = rule.get("owner")
+        if scope == "dept":
+            return owner == me or owner in _dept_owners()
+        if scope == "self":
+            return owner == me
+        return False
 
     def login_required(f):
         @wraps(f)
@@ -126,15 +147,38 @@ def create_app():
         return wrapper
 
     def visible_rules():
-        """当前登录用户可见的规则：管理员全部；普通用户 = 自己的 + 共享。"""
+        """当前用户可见的规则:管理员全部;否则按视图数据范围(all/dept/self)。共享规则(*)始终可见。"""
+        rules = _rules.list()
         if is_admin():
-            return _rules.list()
+            return rules
+        scope = _scope("X-IIS-View-Scope") or "self"
         me = current_user()
-        return [r for r in _rules.list()
-                if r.get("owner") in (me, OWNER_SHARED, None)]
+        owners = _dept_owners() if scope == "dept" else set()
+
+        def ok(r):
+            owner = r.get("owner")
+            if owner in (OWNER_SHARED, None, "*"):
+                return True
+            if scope == "all":
+                return True
+            if scope == "dept":
+                return owner == me or owner in owners
+            return owner == me
+
+        return [r for r in rules if ok(r)]
+
+    def can_create():
+        return is_admin() or _scope("X-IIS-Create") == "1"
 
     def can_edit_rule(rule):
-        return is_admin() or rule.get("owner") == current_user()
+        if is_admin():
+            return True
+        return _scope_allows(_scope("X-IIS-Edit-Scope"), rule)
+
+    def can_delete_rule(rule):
+        if is_admin():
+            return True
+        return _scope_allows(_scope("X-IIS-Delete-Scope"), rule)
 
     def visible_contracts(rules):
         contracts = set()
@@ -216,6 +260,8 @@ def create_app():
     @login_required
     def api_rules_create():
         data = request.get_json(silent=True) or {}
+        if not can_create():
+            return jsonify({"ok": False, "error": "无权新增规则"}), 403
         if is_admin():
             data.setdefault("owner", OWNER_SHARED)
         else:
@@ -247,7 +293,7 @@ def create_app():
         exist = _rules.get(rule_id)
         if not exist:
             return jsonify({"ok": False, "error": "规则不存在"}), 404
-        if not can_edit_rule(exist):
+        if not can_delete_rule(exist):
             return jsonify({"ok": False, "error": "无权删除该规则"}), 403
         _rules.delete(rule_id)
         _state.remove_rule_value(rule_id)
@@ -364,42 +410,22 @@ def create_app():
     @app.route("/api/users", methods=["GET"])
     @admin_required
     def api_users_list():
-        return jsonify({"users": _users.list(), "me": current_user()})
+        return jsonify({"ok": False, "error": "用户由信息集成系统统一管理"}), 403
 
     @app.route("/api/users", methods=["POST"])
     @admin_required
     def api_users_create():
-        data = request.get_json(silent=True) or {}
-        try:
-            user = _users.create(
-                username=data.get("username", ""),
-                password=data.get("password", ""),
-                role=data.get("role", "user"),
-            )
-            return jsonify({"ok": True, "user": user}), 201
-        except ValueError as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 400
+        return jsonify({"ok": False, "error": "用户由信息集成系统统一管理"}), 403
 
     @app.route("/api/users/<username>/password", methods=["POST"])
     @admin_required
     def api_users_set_password(username):
-        data = request.get_json(silent=True) or {}
-        try:
-            _users.set_password(username, data.get("password", ""))
-            return jsonify({"ok": True})
-        except ValueError as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 400
+        return jsonify({"ok": False, "error": "用户由信息集成系统统一管理"}), 403
 
     @app.route("/api/users/<username>", methods=["DELETE"])
     @admin_required
     def api_users_delete(username):
-        if username == current_user():
-            return jsonify({"ok": False, "error": "不能删除当前登录的管理员"}), 400
-        try:
-            _users.delete(username)
-            return jsonify({"ok": True})
-        except ValueError as exc:
-            return jsonify({"ok": False, "error": str(exc)}), 400
+        return jsonify({"ok": False, "error": "用户由信息集成系统统一管理"}), 403
 
     # ------------------------------------------------------------ 引擎控制（仅管理员）
     @app.route("/api/engine", methods=["POST"])

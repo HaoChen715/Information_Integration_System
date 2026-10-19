@@ -22,6 +22,7 @@ from app.db.base import Base
 from app.db.migrate import ensure_columns
 from app.db.session import SessionLocal, engine
 from app import monitor_integration
+from app.monitor_auth import monitor_auth_middleware
 import app.models  # noqa: F401  确保模型注册到 metadata
 
 
@@ -44,7 +45,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.17.0",
+    version="0.18.0",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -57,6 +58,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.middleware("http")(monitor_auth_middleware)
 
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(oidc.router, prefix=settings.API_V1_PREFIX)

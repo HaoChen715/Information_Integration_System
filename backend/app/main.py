@@ -9,6 +9,8 @@ from app.api.routes import (
     auth,
     baserow_admin,
     data,
+    datatables,
+    datatables_admin,
     departments,
     oidc,
     records,
@@ -45,7 +47,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.18.0",
+    version="0.19.0",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -68,6 +70,8 @@ app.include_router(users.router, prefix=settings.API_V1_PREFIX)
 app.include_router(departments.router, prefix=settings.API_V1_PREFIX)
 app.include_router(data.router, prefix=settings.API_V1_PREFIX)
 app.include_router(baserow_admin.router, prefix=settings.API_V1_PREFIX)
+app.include_router(datatables.router, prefix=settings.API_V1_PREFIX)
+app.include_router(datatables_admin.router, prefix=settings.API_V1_PREFIX)
 
 if settings.MONITOR_ENABLED:
     app.mount("/monitor", WSGIMiddleware(monitor_integration.create_wsgi_app()))

@@ -14,11 +14,13 @@ _ADDED_COLUMNS = [
     ("roles", "is_department_manager", "BOOLEAN NOT NULL DEFAULT 0"),
     ("baserow_sources", "departments", "TEXT"),
     ("baserow_tables", "title_field", "VARCHAR(128)"),
+    ("data_tables", "department_field", "VARCHAR(64)"),
 ]
 
 # (表, 列, 回填默认值 SQL 字面量)
 _BACKFILLS = [
     ("baserow_tables", "title_field", "''"),
+    ("data_tables", "department_field", "''"),
 ]
 
 

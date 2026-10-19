@@ -1,21 +1,39 @@
 name: iis
 
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-iis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-iis}
+      POSTGRES_DB: ${POSTGRES_DB:-iis}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-iis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
-    image: iis-backend:${TAG:-0.18.0}
+    image: iis-backend:${TAG:-0.19.0}
     build:
       context: ../..
       dockerfile: deploy/app/backend.Dockerfile
     env_file:
       - .env
     environment:
-      # SQLite 落盘到数据卷,容器重建不丢数据
-      - DATABASE_URL=sqlite:////app/data/app.db
+      # PostgreSQL(生产库);本地如想用 SQLite 可改为 sqlite:////app/data/app.db
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://iis:iis@db:5432/iis}
     volumes:
       - backend_data:/app/data
       # 内网 CA 自签:将 CA 证书放到本目录 ./certs/ca.pem,取消下一行注释,
       # 并在 .env 中设置 OIDC_CA_CERT=/certs/ca.pem
       # - ./certs/ca.pem:/certs/ca.pem:ro
+    depends_on:
+      db:
+        condition: service_healthy
     expose:
       - "8000"
     restart: unless-stopped
@@ -31,7 +49,7 @@ services:
       start_period: 10s
 
   frontend:
-    image: iis-frontend:${TAG:-0.18.0}
+    image: iis-frontend:${TAG:-0.19.0}
     build:
       context: ../..
       dockerfile: deploy/app/frontend.Dockerfile
@@ -43,3 +61,4 @@ services:
 
 volumes:
   backend_data:
+  db_data:

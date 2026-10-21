@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
 import UserAvatar from './UserAvatar.vue'
@@ -9,10 +9,24 @@ const props = withDefaults(defineProps<{ wide?: boolean }>(), { wide: false })
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const mainClass = computed(() =>
   props.wide ? 'mx-auto max-w-[1800px] px-4 py-6' : 'mx-auto max-w-6xl px-6 py-8',
 )
+
+const showBack = computed(() => route.path !== '/')
+
+function backFallback(path: string): string {
+  if (path.startsWith('/department/')) return '/department'
+  if (path === '/monitor') return '/department'
+  return '/'
+}
+
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else router.replace(backFallback(route.path))
+}
 
 const navItems = computed(() => {
   const items: { to: string; label: string }[] = [
@@ -40,6 +54,13 @@ function handleLogout() {
     <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <div class="flex items-center gap-6">
+          <button
+            v-if="showBack"
+            class="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
+            @click="goBack"
+          >
+            ← 返回
+          </button>
           <div class="flex items-center gap-2">
             <div
               class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 font-bold text-white"

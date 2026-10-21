@@ -31,7 +31,7 @@
   body.embed header .badges { margin-left: 0; }
   body.embed header .badges .btn { display: none; }
   body.embed nav { padding: 8px 16px 0; }
-  body.embed main { padding: 16px; }
+  body.embed main { max-width: none; margin: 0; padding: 16px; }
   header {
     background: var(--panel);
     border-bottom: 1px solid var(--border);
@@ -90,7 +90,8 @@
     transition: opacity .15s;
   }
   .btn:hover { opacity: .85; }
-  .btn.secondary { background: var(--panel-2); }
+  .btn.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn.secondary:hover { background: #f8fafc; opacity: 1; }
   .btn.danger { background: var(--danger); }
   .btn.small { padding: 4px 10px; font-size: 12px; }
 
@@ -107,7 +108,7 @@
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
   th { color: var(--muted); font-weight: 500; white-space: nowrap; }
-  tr:hover td { background: rgba(51,65,85,.4); }
+  tr:hover td { background: #f8fafc; }
   .mono { font-family: "SF Mono", Consolas, monospace; }
 
   .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px; }
@@ -473,6 +474,9 @@
         </div>
         <div class="field checkbox full">
           <div><input type="checkbox" name="enableheartbeat"> 开启心跳看门狗（定期发送"程序正常"告警）</div>
+        </div>
+        <div class="field checkbox full">
+          <div><input type="checkbox" name="demo"> 演示行情模式（生成拟真动态数据，仅写告警日志，不发送真实企业微信）</div>
         </div>
         <div class="full modal-actions">
           <button type="button" class="btn secondary" onclick="testAlert()">发送测试告警</button>
@@ -1423,6 +1427,7 @@ async function loadSettings() {
     f.heartbeatinterval.value = c.heartbeatinterval;
     f.notifyrecovery.checked = c.notifyrecovery === "1";
     f.enableheartbeat.checked = c.enableheartbeat === "1";
+    f.demo.checked = c.demo === "1";
   } catch (e) { toast("加载设置失败: " + e.message, "bad"); }
 }
 
@@ -1445,6 +1450,7 @@ async function saveSettings(e) {
     heartbeatinterval: f.heartbeatinterval.value,
     notifyrecovery: f.notifyrecovery.checked ? "1" : "0",
     enableheartbeat: f.enableheartbeat.checked ? "1" : "0",
+    demo: f.demo.checked ? "1" : "0",
   };
   const w = f.wechathookkey.value.trim();
   if (w) data.wechathookkey = w;

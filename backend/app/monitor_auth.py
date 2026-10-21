@@ -18,7 +18,7 @@ from app.core.security import decode_access_token
 from app.db.session import SessionLocal
 from app.models.user import User
 
-PREFIX = "/monitor"
+PREFIX = "/monitor-app"
 
 
 def _resolve_user(token: str) -> User | None:

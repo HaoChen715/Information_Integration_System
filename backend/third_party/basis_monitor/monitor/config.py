@@ -41,6 +41,7 @@ DEFAULTS = {
     "lunchend": "130000",
     "datasource": "hybrid",
     "derivedinterval": "300",
+    "demo": "0",
     "historyinterval": "30",
     "historymaxpoints": "2000",
     "serverhost": "0.0.0.0",

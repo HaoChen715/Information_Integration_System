@@ -347,6 +347,8 @@ def create_app():
         # 切换到 hybrid 时确保衍生指标后台线程在运行
         if _config.get("datasource", "sina").strip().lower() == "hybrid":
             _engine.start()
+        # 立即唤醒主循环(如切换演示模式后立刻生效)
+        _engine.wake()
         return jsonify({"ok": True, "changed": changed, "config": _config.as_dict()})
 
     # ------------------------------------------------------------ 测试告警（仅管理员）

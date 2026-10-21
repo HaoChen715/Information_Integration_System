@@ -10,6 +10,7 @@
 import json
 import logging
 import os
+import random
 import threading
 import time
 from datetime import datetime
@@ -61,11 +62,17 @@ class MonitorEngine:
         self.quote_fetcher = quote_fetcher or QuoteFetcher()
         self.history = history or HistoryStore()
         self._stop_flag = threading.Event()
+        self._wake_flag = threading.Event()
         self._thread = None
         self._derived_thread = None
         self._prev_trigger = {}   # rule_id -> direction 或 None
         self._last_was_open = False
         self._tinysoft_cache = {}  # 最近一次 tinysoft 衍生指标缓存（hybrid 用）
+        self._demo_prices = {}     # 演示模式的随机游走价格
+
+    def wake(self):
+        """唤醒休眠中的主循环(如切换演示模式后立即生效)。"""
+        self._wake_flag.set()
 
     def start(self):
         if not (self._thread and self._thread.is_alive()):
@@ -85,6 +92,8 @@ class MonitorEngine:
 
     # ------------------------------------------------------------- 交易时段
     def _is_trading_time(self, now: datetime):
+        if self.config.get_bool("demo", False):
+            return True
         if now.weekday() >= 5:  # 周末
             return False
         t = _hhmmss(now)
@@ -122,7 +131,8 @@ class MonitorEngine:
                     if self._was_open:
                         logger.info("进入非交易时段，监控休眠")
                     self._was_open = False
-                    time.sleep(60)
+                    self._wake_flag.wait(60)
+                    self._wake_flag.clear()
                     continue
 
                 self._was_open = True
@@ -170,6 +180,8 @@ class MonitorEngine:
     # ------------------------------------------------------------- 数据源
     def _fetch_data(self):
         """按配置的数据源抓取行情，返回 {variety: {contract: {metric: value}}}。"""
+        if self.config.get_bool("demo", False):
+            return self._demo_market_data()
         source = self._source()
         if source == "sina":
             return self.sina_fetcher.fetch_all()
@@ -192,11 +204,75 @@ class MonitorEngine:
                 symbols.append(rule["symbol"])
         if not symbols:
             return {}
+        if self.config.get_bool("demo", False):
+            return self._demo_quotes(symbols)
         try:
             return self.quote_fetcher.fetch(symbols)
         except Exception as exc:
             logger.error("行情价格抓取失败: %s", exc, exc_info=True)
             return {}
+
+    # ------------------------------------------------------------- 演示行情
+    def _demo_market_data(self):
+        """生成拟真的动态行情(随机游走),覆盖当前启用规则涉及的合约。"""
+        contracts = set()
+        for rule in self.rules.list():
+            if not rule.get("enabled") or rule.get("rule_type") == "price":
+                continue
+            for key in ("contract_a", "contract_b"):
+                c = rule.get(key)
+                if c:
+                    contracts.add(c)
+        if not contracts:
+            contracts = {"IM2612", "IM2609", "IC2612", "IC2609"}
+        bases = {"IM": 6000.0, "IF": 4000.0, "IC": 5800.0, "IH": 2800.0}
+        table = {}
+        for c in sorted(contracts):
+            variety = c[:2]
+            base = self._demo_prices.get(c) or bases.get(variety, 3000.0)
+            base = max(100.0, base + random.uniform(-3, 3))
+            self._demo_prices[c] = base
+            spot = round(base, 2)
+            basis = round(random.uniform(-80, 80), 2)
+            futures = round(spot + basis, 2)
+            div = round(random.uniform(0, 5), 2)
+            table[c] = {
+                "现货价格": spot,
+                "期货价格": futures,
+                "当前基差": basis,
+                "基差占比(%)": round(basis / spot * 100, 4) if spot else 0,
+                "期内分红": div,
+                "矫正基差": round(basis + div, 2),
+                "隐含利率(%)": round(random.uniform(-4, 4), 3),
+                "利率(%)": round(random.uniform(1, 3), 3),
+                "时间价值": round(basis * 0.1, 2),
+                "理论基差": round(basis * 0.95, 2),
+            }
+        return {"DEMO": table}
+
+    def _demo_quotes(self, symbols):
+        """生成拟真的动态证券行情。"""
+        out = {}
+        for raw in symbols:
+            sym = normalize_symbol(raw) or raw
+            price = self._demo_prices.get("Q:" + sym) or random.uniform(9, 15)
+            price = max(0.5, price + random.uniform(-0.05, 0.05))
+            self._demo_prices["Q:" + sym] = price
+            prev = price - random.uniform(-0.1, 0.1)
+            high = max(price, prev) + random.uniform(0, 0.05)
+            low = min(price, prev) - random.uniform(0, 0.05)
+            out[sym] = {
+                "name": sym,
+                "price": round(price, 3),
+                "prev_close": round(prev, 3),
+                "open": round(prev + random.uniform(-0.05, 0.05), 3),
+                "high": round(high, 3),
+                "low": round(low, 3),
+                "change": round(price - prev, 3),
+                "change_pct": round((price - prev) / prev * 100, 3) if prev else 0,
+                "amount": round(random.uniform(1e6, 5e8), 2),
+            }
+        return out
 
     def _derived_loop(self):
         """hybrid 模式后台线程：定时从 tinysoft 抓取衍生指标并合并。"""
@@ -347,7 +423,10 @@ class MonitorEngine:
         last_alert = self._prev_trigger.get(rule["id"])
 
         if direction:
-            result = self.alarm.alarm(rule, direction, value, detail)
+            if self.config.get_bool("demo", False):
+                result = False  # 演示模式只记录告警日志,不真发企业微信
+            else:
+                result = self.alarm.alarm(rule, direction, value, detail)
             self.state.add_alert({
                 "rule_id": rule["id"],
                 "rule_name": rule.get("name"),
@@ -369,16 +448,17 @@ class MonitorEngine:
 
         if last_alert and rule.get("notify_recovery", True):
             title = "行情价格监控" if rule.get("rule_type") == "price" else "基差/跨期价差监控"
-            self.alarm.send(
-                webhook_key=rule.get("webhook_key"),
-                content=(
-                    f"<font color=\"info\">【{title}-恢复】</font>\n"
-                    f">监控项:{rule.get('name')}\n"
-                    f">当前值:{value}，已回到正常区间\n"
-                    f">播报时间:{time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                ),
-                mentioned_list=rule.get("mentioned_list") or ["@all"],
-            )
+            if not self.config.get_bool("demo", False):
+                self.alarm.send(
+                    webhook_key=rule.get("webhook_key"),
+                    content=(
+                        f"<font color=\"info\">【{title}-恢复】</font>\n"
+                        f">监控项:{rule.get('name')}\n"
+                        f">当前值:{value}，已回到正常区间\n"
+                        f">播报时间:{time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    ),
+                    mentioned_list=rule.get("mentioned_list") or ["@all"],
+                )
             self.state.add_alert({
                 "rule_id": rule["id"],
                 "rule_name": rule.get("name"),

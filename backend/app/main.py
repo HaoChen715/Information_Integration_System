@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="0.20.0",
+    version="0.21.0",
     lifespan=lifespan,
     docs_url="/docs",
     openapi_url="/openapi.json",
@@ -74,7 +74,7 @@ app.include_router(datatables.router, prefix=settings.API_V1_PREFIX)
 app.include_router(datatables_admin.router, prefix=settings.API_V1_PREFIX)
 
 if settings.MONITOR_ENABLED:
-    app.mount("/monitor", WSGIMiddleware(monitor_integration.create_wsgi_app()))
+    app.mount("/monitor-app", WSGIMiddleware(monitor_integration.create_wsgi_app()))
 
 
 @app.get("/api/health", tags=["系统"], summary="健康检查")

@@ -15,9 +15,9 @@
       </RouterLink>
     </div>
     <iframe
-      src="/monitor/?embed=1"
+      src="/monitor-app/?embed=1"
       title="行情监控"
-      class="h-[calc(100vh-11rem)] w-full rounded-2xl border border-slate-200 bg-white"
+      class="block h-[calc(100vh-10.5rem)] w-full border-0 bg-transparent"
     />
   </AppLayout>
 </template>

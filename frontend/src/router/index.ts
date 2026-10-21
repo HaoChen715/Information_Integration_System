@@ -35,6 +35,12 @@ const router = createRouter({
       meta: { permission: 'data:view' },
     },
     {
+      path: '/monitor',
+      name: 'monitor',
+      component: () => import('../views/MonitorView.vue'),
+      meta: { permission: 'monitor:view' },
+    },
+    {
       path: '/records',
       name: 'records',
       component: () => import('../views/RecordsView.vue'),

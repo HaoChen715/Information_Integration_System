@@ -6,13 +6,13 @@
 <title>基差 / 跨期价差监控系统</title>
 <style>
   :root {
-    --bg: #0f172a;
-    --panel: #1e293b;
-    --panel-2: #334155;
-    --border: #334155;
-    --text: #e2e8f0;
-    --muted: #94a3b8;
-    --primary: #3b82f6;
+    --bg: #f1f5f9;
+    --panel: #ffffff;
+    --panel-2: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --primary: #6366f1;
     --success: #22c55e;
     --warning: #f59e0b;
     --danger: #ef4444;
@@ -25,6 +25,13 @@
     font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: 14px;
   }
+  /* 内嵌到信息集成系统时:隐藏重复标题与退出,保留状态徽标和功能标签 */
+  body.embed header { padding: 8px 16px; }
+  body.embed header > div:first-child { display: none; }
+  body.embed header .badges { margin-left: 0; }
+  body.embed header .badges .btn { display: none; }
+  body.embed nav { padding: 8px 16px 0; }
+  body.embed main { padding: 16px; }
   header {
     background: var(--panel);
     border-bottom: 1px solid var(--border);
@@ -231,6 +238,11 @@
 </style>
 </head>
 <body>
+<script>
+  if (new URLSearchParams(location.search).get("embed") === "1") {
+    document.body.classList.add("embed");
+  }
+</script>
 
 <!-- ======================= 登录 ======================= -->
 <div id="loginView">

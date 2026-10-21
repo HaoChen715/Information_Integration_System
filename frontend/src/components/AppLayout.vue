@@ -37,7 +37,7 @@ function handleLogout() {
 
 <template>
   <div class="min-h-screen bg-slate-100">
-    <header class="border-b border-slate-200 bg-white">
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <div class="flex items-center gap-6">
           <div class="flex items-center gap-2">

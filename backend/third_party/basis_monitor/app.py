@@ -17,7 +17,7 @@ import threading
 import time
 from functools import wraps
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, redirect, render_template, request, session
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
@@ -200,6 +200,9 @@ def create_app():
     # ------------------------------------------------------------ 前端
     @app.route("/")
     def index():
+        # 非内嵌访问时,回到主系统的页面(保留主系统导航),避免独立全屏页
+        if request.args.get("embed") != "1":
+            return redirect("/monitor")
         return render_template("index.html")
 
     # ------------------------------------------------------------ 登录

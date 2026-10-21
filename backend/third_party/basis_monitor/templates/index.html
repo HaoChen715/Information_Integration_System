@@ -25,13 +25,10 @@
     font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: 14px;
   }
-  /* 内嵌到信息集成系统时:隐藏重复标题与退出,保留状态徽标和功能标签 */
-  body.embed header { padding: 8px 16px; }
-  body.embed header > div:first-child { display: none; }
-  body.embed header .badges { margin-left: 0; }
-  body.embed header .badges .btn { display: none; }
-  body.embed nav { padding: 8px 16px; }
-  body.embed main { max-width: none; margin: 0; padding: 16px; }
+  /* 内嵌到信息集成系统时:隐藏自身状态头(由主系统页面展示),内容与主系统左对齐 */
+  body.embed header { display: none; }
+  body.embed nav { padding: 0 0 10px; }
+  body.embed main { max-width: none; margin: 0; padding: 0; }
   header {
     background: var(--panel);
     border-bottom: 1px solid var(--border);

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
+import AppLayout from '../components/AppLayout.vue'
+
 const engineRunning = ref(false)
 const marketOpen = ref(false)
 const lastFetch = ref('--')

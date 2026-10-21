@@ -36,6 +36,7 @@ const router = createRouter({
     },
     {
       path: '/monitor',
+      alias: ['/monitor/'],
       name: 'monitor',
       component: () => import('../views/MonitorView.vue'),
       meta: { permission: 'monitor:view' },

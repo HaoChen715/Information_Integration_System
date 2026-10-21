@@ -22,7 +22,7 @@
 
 ```bash
 # ① 加载镜像
-docker load -i images/iis-images-0.21.4.tar
+docker load -i images/iis-images-0.21.5.tar
 
 # ② 准备配置
 cp .env.example .env

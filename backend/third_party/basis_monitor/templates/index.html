@@ -239,9 +239,23 @@
 </head>
 <body>
 <script>
-  if (new URLSearchParams(location.search).get("embed") === "1") {
-    document.body.classList.add("embed");
-  }
+  (function () {
+    const params = new URLSearchParams(location.search);
+    if (params.get("embed") === "1") {
+      let framed = true;
+      try {
+        framed = window.top !== window.self;
+      } catch (e) {
+        framed = true;
+      }
+      // 单独打开 embed 地址(不在 iframe 中)时,回到主系统页面,避免丢失主系统导航
+      if (!framed) {
+        location.replace("/monitor");
+        return;
+      }
+      document.body.classList.add("embed");
+    }
+  })();
 </script>
 
 <!-- ======================= 登录 ======================= -->

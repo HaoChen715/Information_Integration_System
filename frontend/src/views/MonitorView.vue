@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
     </div>
     <iframe
       src="/monitor-app/?embed=1"
-      title="行情监控"
+      title="行情价格监控"
       class="block h-[calc(100vh-11rem)] min-h-[560px] w-full border-0 bg-transparent"
     />
   </AppLayout>

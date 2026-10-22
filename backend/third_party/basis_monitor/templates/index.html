@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基差 / 跨期价差监控系统</title>
+<title>行情价格监控</title>
 <style>
   :root {
     --bg: #f1f5f9;
@@ -27,6 +27,7 @@
   }
   /* 内嵌到信息集成系统时:隐藏自身状态头(由主系统页面展示),内容与主系统左对齐 */
   body.embed header { display: none; }
+  body.embed #loginView { display: none !important; }
   body.embed nav { margin: 0 0 14px; max-width: 100%; }
   body.embed main { max-width: none; margin: 0; padding: 0; }
   header {
@@ -278,9 +279,9 @@
 </script>
 
 <!-- ======================= 登录 ======================= -->
-<div id="loginView">
+<div id="loginView" class="hidden">
   <form class="login-box" onsubmit="login(event)">
-    <h2>基差 / 跨期价差监控</h2>
+    <h2>行情价格监控</h2>
     <div class="desc">请输入用户名和密码登录</div>
     <div class="field">
       <label>用户名</label>
@@ -299,7 +300,7 @@
 <div id="appView" style="display:none;">
 <header>
   <div>
-    <h1>基差 / 跨期价差监控系统</h1>
+    <h1>行情价格监控</h1>
     <div class="sub">数据源: 新浪实时 + tinysoft 衍生指标 · 企业微信告警</div>
   </div>
   <div class="badges">

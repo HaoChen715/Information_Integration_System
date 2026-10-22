@@ -233,16 +233,24 @@
   .chart-card .name { font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
   .chart-card .meta { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
   .chart-card .vals { display: flex; justify-content: space-between; font-family: "SF Mono", Consolas, monospace; font-size: 12px; }
-  .chart-card .cur { font-size: 16px; font-weight: 600; }
-  .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+  .chart-card .cur { font-size: 16px; font-weight: 600; color: var(--primary); }
+  .chart-legend { display: flex; gap: 16px; flex-wrap: wrap; color: #475569; font-size: 12px; margin-bottom: 8px; }
   .chart-legend .line { display: inline-block; width: 22px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 5px; }
   .chart-wrap { position: relative; width: 100%; }
-  #chartCanvas { display: block; width: 100%; border-radius: 8px; background: rgba(15,23,42,.5); cursor: crosshair; }
+  #chartCanvas {
+    display: block; width: 100%;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid var(--border);
+    cursor: crosshair;
+  }
   .chart-tip {
     position: absolute; pointer-events: none;
-    background: rgba(15,23,42,.95);
+    background: #fff;
     border: 1px solid var(--border);
-    border-radius: 6px; padding: 5px 9px;
+    border-radius: 8px; padding: 6px 10px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .14);
+    color: var(--text);
     font-size: 12px; font-family: "SF Mono", Consolas, monospace;
     white-space: nowrap; display: none; z-index: 5;
   }
@@ -1217,7 +1225,7 @@ function drawChart() {
   const rule = _chartRuleObj || {};
 
   if (pts.length < 1) {
-    ctx.fillStyle = "#94a3b8";
+    ctx.fillStyle = "#64748b";
     ctx.font = "13px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -1249,9 +1257,9 @@ function drawChart() {
   for (let i = 0; i <= yLines; i++) {
     const v = lo + (hi - lo) * i / yLines;
     const y = Y(v);
-    ctx.strokeStyle = "rgba(148,163,184,.18)";
+    ctx.strokeStyle = "rgba(148,163,184,.28)";
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
-    ctx.fillStyle = "#94a3b8";
+    ctx.fillStyle = "#64748b";
     ctx.fillText(fmtNum(v), padL - 8, y);
   }
   // 垂直网格 + X 轴标签
@@ -1261,9 +1269,9 @@ function drawChart() {
   for (let i = 0; i < xLines; i++) {
     const t = t0 + span * (xLines === 1 ? 0 : i / (xLines - 1));
     const x = X(t);
-    ctx.strokeStyle = "rgba(148,163,184,.08)";
+    ctx.strokeStyle = "rgba(148,163,184,.14)";
     ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
-    ctx.fillStyle = "#94a3b8";
+    ctx.fillStyle = "#64748b";
     ctx.fillText(fmtClock(t, span), x, padT + plotH + 6);
   }
   // 阈值线 MIN / MAX
@@ -1282,13 +1290,13 @@ function drawChart() {
     ctx.fillText(label + " " + fmtNum(Number(val)), padL + 4, y - 3);
     ctx.restore();
   };
-  threshold(rule.max, "#ef4444", "MAX");
-  threshold(rule.min, "#f59e0b", "MIN");
+  threshold(rule.max, "#dc2626", "MAX");
+  threshold(rule.min, "#d97706", "MIN");
 
   // 面积
   const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
-  grad.addColorStop(0, "rgba(59,130,246,.35)");
-  grad.addColorStop(1, "rgba(59,130,246,.02)");
+  grad.addColorStop(0, "rgba(37,99,235,.22)");
+  grad.addColorStop(1, "rgba(37,99,235,.01)");
   ctx.beginPath();
   pts.forEach((p, i) => { const x = X(p.t), y = Y(p.v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
   ctx.lineTo(X(pts[n - 1].t), padT + plotH);
@@ -1298,21 +1306,37 @@ function drawChart() {
   // 曲线
   ctx.beginPath();
   pts.forEach((p, i) => { const x = X(p.t), y = Y(p.v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-  ctx.strokeStyle = "#3b82f6"; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
-  // 末端点
-  ctx.beginPath(); ctx.arc(X(pts[n - 1].t), Y(pts[n - 1].v), 3.5, 0, Math.PI * 2);
-  ctx.fillStyle = "#3b82f6"; ctx.fill();
+  ctx.strokeStyle = "#2563eb"; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.stroke();
+  // 末端点 + 最新值标签
+  const lastX = X(pts[n - 1].t), lastY = Y(pts[n - 1].v);
+  ctx.beginPath(); ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "#2563eb"; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+  const lastLabel = fmtNum(pts[n - 1].v);
+  ctx.font = "12px monospace";
+  const lw = ctx.measureText(lastLabel).width + 14;
+  const lh = 20;
+  let bx = lastX + 10;
+  if (bx + lw > padL + plotW) bx = lastX - 10 - lw;
+  if (bx < padL) bx = padL;
+  const by = Math.max(padT, Math.min(lastY - lh / 2, padT + plotH - lh));
+  ctx.beginPath(); ctx.roundRect(bx, by, lw, lh, 10);
+  ctx.fillStyle = "#2563eb"; ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(lastLabel, bx + lw / 2, by + lh / 2);
 
   // 悬停十字线
   if (_chartHoverIdx >= 0 && _chartHoverIdx < n) {
     const p = pts[_chartHoverIdx];
     const x = X(p.t), y = Y(p.v);
     ctx.save();
-    ctx.strokeStyle = "rgba(148,163,184,.6)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(100,116,139,.55)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fillStyle = "#e2e8f0"; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = "#2563eb"; ctx.stroke();
     ctx.restore();
   }
 
@@ -1336,7 +1360,7 @@ function onChartMove(e) {
   if (idx !== _chartHoverIdx) { _chartHoverIdx = idx; drawChart(); }
   const tip = $("chartTip");
   const p = c.pts[idx];
-  tip.textContent = fmtFull(p.t) + "   " + p.v;
+  tip.textContent = fmtFull(p.t) + "   " + (p.v != null && isFinite(Number(p.v)) ? fmtNum(Number(p.v)) : p.v);
   const wrap = $("chartCanvas").parentElement;
   const wrect = wrap.getBoundingClientRect();
   let left = e.clientX - wrect.left + 12;

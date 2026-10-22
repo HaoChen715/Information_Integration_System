@@ -45,6 +45,33 @@ function fmtLogin(value: string | null): string {
   return d.getFullYear() === new Date().getFullYear() ? `${md} ${hm}` : `${d.getFullYear()}-${md} ${hm}`
 }
 
+function fmtFull(value: string | null): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '--'
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+
+type PresenceUser = DepartmentMember | AdminUser
+
+const hoverUser = ref<PresenceUser | null>(null)
+const hoverPos = ref({ x: 0, y: 0 })
+
+function showHover(user: PresenceUser, event: MouseEvent) {
+  const width = 300
+  const height = 230
+  hoverUser.value = user
+  hoverPos.value = {
+    x: Math.max(12, Math.min(event.clientX + 16, window.innerWidth - width - 12)),
+    y: Math.max(12, Math.min(event.clientY + 16, window.innerHeight - height - 12)),
+  }
+}
+
+function hideHover() {
+  hoverUser.value = null
+}
+
 async function loadMembers() {
   if (auth.isAdmin) {
     allUsers.value = await fetchAdminUsers()
@@ -131,7 +158,9 @@ onBeforeUnmount(() => {
             <li
               v-for="m in members"
               :key="m.id"
-              class="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-slate-50"
+              class="flex cursor-default items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-slate-50 hover:ring-1 hover:ring-indigo-100"
+              @mouseenter="showHover(m, $event)"
+              @mouseleave="hideHover"
             >
               <UserAvatar :src="m.avatar_url" :name="m.full_name" :username="m.username" :size="38" />
               <div class="min-w-0 flex-1">
@@ -142,19 +171,17 @@ onBeforeUnmount(() => {
                 <p class="truncate text-xs text-slate-400">
                   {{ m.role_names.length ? m.role_names.join('、') : '@' + m.username }}
                 </p>
-                <div class="mt-1 flex items-center gap-1.5 text-[11px]">
-                  <span
-                    class="h-1.5 w-1.5 shrink-0 rounded-full"
-                    :class="m.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
-                  />
-                  <span
-                    class="shrink-0"
-                    :class="m.is_online ? 'text-emerald-600' : 'text-slate-400'"
-                  >
-                    {{ m.is_online ? '在线' : '离线' }}
-                  </span>
-                  <span class="text-slate-300">·</span>
-                  <span class="truncate text-slate-400">最近登录 {{ fmtLogin(m.last_login_at) }}</span>
+                <div class="mt-1 space-y-0.5 text-[11px] leading-4">
+                  <div class="flex items-center gap-1.5">
+                    <span
+                      class="h-1.5 w-1.5 shrink-0 rounded-full"
+                      :class="m.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
+                    />
+                    <span :class="m.is_online ? 'text-emerald-600' : 'text-slate-400'">
+                      {{ m.is_online ? '在线' : '离线' }}
+                    </span>
+                  </div>
+                  <div class="text-slate-400">最近登录 {{ fmtLogin(m.last_login_at) }}</div>
                 </div>
               </div>
             </li>
@@ -177,7 +204,9 @@ onBeforeUnmount(() => {
             <div
               v-for="m in adminMembers"
               :key="m.id"
-              class="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition hover:bg-slate-50"
+              class="flex cursor-default items-center gap-3 rounded-xl border border-slate-100 p-3 transition hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md hover:ring-1 hover:ring-indigo-100"
+              @mouseenter="showHover(m, $event)"
+              @mouseleave="hideHover"
             >
               <UserAvatar :src="m.avatar_url" :name="m.full_name" :username="m.username" :size="40" />
               <div class="min-w-0">
@@ -188,19 +217,17 @@ onBeforeUnmount(() => {
                 <p class="truncate text-xs text-slate-400">
                   {{ m.role_names.length ? m.role_names.join('、') : '@' + m.username }}
                 </p>
-                <div class="mt-1 flex items-center gap-1.5 text-[11px]">
-                  <span
-                    class="h-1.5 w-1.5 shrink-0 rounded-full"
-                    :class="m.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
-                  />
-                  <span
-                    class="shrink-0"
-                    :class="m.is_online ? 'text-emerald-600' : 'text-slate-400'"
-                  >
-                    {{ m.is_online ? '在线' : '离线' }}
-                  </span>
-                  <span class="text-slate-300">·</span>
-                  <span class="truncate text-slate-400">最近登录 {{ fmtLogin(m.last_login_at) }}</span>
+                <div class="mt-1 space-y-0.5 text-[11px] leading-4">
+                  <div class="flex items-center gap-1.5">
+                    <span
+                      class="h-1.5 w-1.5 shrink-0 rounded-full"
+                      :class="m.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
+                    />
+                    <span :class="m.is_online ? 'text-emerald-600' : 'text-slate-400'">
+                      {{ m.is_online ? '在线' : '离线' }}
+                    </span>
+                  </div>
+                  <div class="text-slate-400">最近登录 {{ fmtLogin(m.last_login_at) }}</div>
                 </div>
               </div>
             </div>
@@ -244,4 +271,55 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </AppLayout>
+
+  <div
+    v-if="hoverUser"
+    class="pointer-events-none fixed z-[60] w-[300px] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl ring-1 ring-slate-900/5"
+    :style="{ left: hoverPos.x + 'px', top: hoverPos.y + 'px' }"
+  >
+    <div class="flex items-center gap-3">
+      <UserAvatar
+        :src="hoverUser.avatar_url"
+        :name="hoverUser.full_name"
+        :username="hoverUser.username"
+        :size="44"
+      />
+      <div class="min-w-0">
+        <p class="truncate text-sm font-semibold text-slate-800">
+          {{ hoverUser.full_name || hoverUser.username }}
+        </p>
+        <p class="truncate text-xs text-slate-400">@{{ hoverUser.username }}</p>
+      </div>
+      <span
+        class="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
+        :class="hoverUser.is_online ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'"
+      >
+        <span
+          class="h-1.5 w-1.5 rounded-full"
+          :class="hoverUser.is_online ? 'bg-emerald-500' : 'bg-slate-400'"
+        />
+        {{ hoverUser.is_online ? '在线' : '离线' }}
+      </span>
+    </div>
+    <div class="mt-3 space-y-1.5 border-t border-slate-100 pt-3 text-xs">
+      <div class="flex justify-between gap-3">
+        <span class="shrink-0 text-slate-400">部门</span>
+        <span class="text-right text-slate-700">{{ hoverUser.department || '未设置' }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="shrink-0 text-slate-400">角色</span>
+        <span class="text-right text-slate-700">
+          {{ hoverUser.role_names.length ? hoverUser.role_names.join('、') : '—' }}
+        </span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="shrink-0 text-slate-400">最近登录</span>
+        <span class="text-right font-medium text-slate-700">{{ fmtFull(hoverUser.last_login_at) }}</span>
+      </div>
+      <div class="flex justify-between gap-3">
+        <span class="shrink-0 text-slate-400">最近活跃</span>
+        <span class="text-right text-slate-700">{{ fmtFull(hoverUser.last_seen_at) }}</span>
+      </div>
+    </div>
+  </div>
 </template>

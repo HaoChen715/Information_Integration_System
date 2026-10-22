@@ -1263,11 +1263,24 @@ function drawChart() {
   lo -= padY; hi += padY;
 
   const n = pts.length;
-  const total = (e1 - s1) + (e2 - s2);
+  // 分段权重:9:15-9:20、9:20-9:30 各占 1 格;9:30 之后每个半小时 1 格,午休跳过
+  const segs = [
+    { a: s1, b: s1 + 300, w: 0.65 },
+    { a: s1 + 300, b: s1 + 900, w: 0.65 },
+    { a: s1 + 900, b: e1, w: (e1 - (s1 + 900)) / 1800 },
+    { a: s2, b: e2, w: (e2 - s2) / 1800 },
+  ];
+  const W = segs.reduce((acc, g) => acc + g.w, 0);
   const X = (t) => {
-    const tt = Math.min(Math.max(t, s1), e2);
-    if (tt <= e1) return padL + (tt - s1) / total * plotW;
-    return padL + ((e1 - s1) + Math.max(tt, s2) - s2) / total * plotW;
+    let cw = 0;
+    for (const g of segs) {
+      if (t <= g.b) {
+        const r = Math.min(Math.max((t - g.a) / (g.b - g.a), 0), 1);
+        return padL + (cw + r * g.w) / W * plotW;
+      }
+      cw += g.w;
+    }
+    return padL + plotW;
   };
   const Y = (v) => padT + (hi - v) / (hi - lo) * plotH;
 
@@ -1287,9 +1300,8 @@ function drawChart() {
   }
   // 垂直网格 + X 轴标签(每 30 分钟,午休压缩)
   ctx.textBaseline = "top";
-  const ticks = [];
-  for (let t = s1; t < e1; t += 1800) ticks.push(t);
-  ticks.push(e1);
+  const ticks = [s1, s1 + 300, s1 + 900];
+  for (let t = s1 + 900 + 1800; t <= e1; t += 1800) ticks.push(t);
   for (let t = s2 + 1800; t <= e2; t += 1800) ticks.push(t);
   ticks.forEach((t, i) => {
     const x = X(t);
@@ -1297,8 +1309,7 @@ function drawChart() {
     ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
     ctx.fillStyle = "#64748b";
     ctx.textAlign = i === 0 ? "left" : (i === ticks.length - 1 ? "right" : "center");
-    const label = (t === e1) ? "11:30/13:00" : fmtCST(t);
-    ctx.fillText(label, x, padT + plotH + 6);
+    ctx.fillText(fmtCST(t), x, padT + plotH + 6);
   });
   // 阈值线 MIN / MAX
   const threshold = (val, color, label) => {
@@ -1366,7 +1377,7 @@ function drawChart() {
     ctx.restore();
   }
 
-  cv._chart = { padL, padT, plotW, plotH, s1, e1, s2, e2, total, lo, hi, pts, n };
+  cv._chart = { padL, padT, plotW, plotH, segs, W, lo, hi, pts, n };
   $("chartMeta").textContent = "共 " + n + " 个采样点 · 交易时段 09:15–15:00 · " + fmtCST(pts[0].t, true) + " ~ " + fmtCST(pts[n - 1].t, true);
 }
 
@@ -1376,9 +1387,12 @@ function onChartMove(e) {
   if (!c || !c.pts.length) return;
   const rect = cv.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  const f = Math.min(Math.max((x - c.padL) / c.plotW, 0), 1) * c.total;
-  const lunch = c.e1 - c.s1;
-  const t = f <= lunch ? c.s1 + f : c.s2 + (f - lunch);
+  const f = Math.min(Math.max((x - c.padL) / c.plotW, 0), 1) * c.W;
+  let t = c.segs[c.segs.length - 1].b, cw = 0;
+  for (const g of c.segs) {
+    if (f <= cw + g.w) { t = g.a + (f - cw) / g.w * (g.b - g.a); break; }
+    cw += g.w;
+  }
   let idx = 0, best = Infinity;
   for (let i = 0; i < c.n; i++) {
     const d = Math.abs(c.pts[i].t - t);

@@ -44,6 +44,9 @@ export interface AdminUser {
   permissions: Record<string, string>
   direct_permissions: Grant[]
   avatar_url: string | null
+  is_online: boolean
+  last_login_at: string | null
+  last_seen_at: string | null
 }
 
 export interface RolePayload {
@@ -128,6 +131,8 @@ export interface DepartmentMember {
   roles: string[]
   role_names: string[]
   is_active: boolean
+  is_online: boolean
+  last_login_at: string | null
   last_seen_at: string | null
 }
 

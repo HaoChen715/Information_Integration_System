@@ -12,6 +12,7 @@ from app.api.deps import (
 )
 from app.core.avatars import avatar_url
 from app.core.config import settings
+from app.core.presence import is_online
 from app.core.permissions import (
     RESOURCE_LABELS,
     effective_permissions,
@@ -77,6 +78,9 @@ def _user_out(db: Session, user: User) -> UserAdminOut:
         permissions=effective_permissions(db, user),
         direct_permissions=rbac_crud.user_grants(db, user),
         avatar_url=avatar_url(user),
+        is_online=is_online(user.last_seen_at),
+        last_login_at=user.last_login_at,
+        last_seen_at=user.last_seen_at,
     )
 
 

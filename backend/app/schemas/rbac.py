@@ -86,6 +86,9 @@ class UserAdminOut(BaseModel):
     permissions: dict[str, str] = {}
     direct_permissions: list[PermissionGrant] = []
     avatar_url: Optional[str] = None
+    is_online: bool = False
+    last_login_at: Optional[UTCDatetime] = None
+    last_seen_at: Optional[UTCDatetime] = None
 
 
 class OnlineUserOut(BaseModel):
@@ -126,6 +129,8 @@ class DepartmentMemberOut(BaseModel):
     roles: list[str] = []
     role_names: list[str] = []
     is_active: bool
+    is_online: bool = False
+    last_login_at: Optional[UTCDatetime] = None
     last_seen_at: Optional[UTCDatetime] = None
 
 

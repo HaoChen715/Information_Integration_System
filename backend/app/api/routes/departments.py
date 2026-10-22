@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.avatars import avatar_url
+from app.core.presence import is_online
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.rbac import DepartmentMemberOut
@@ -39,6 +40,8 @@ def my_department_members(
             roles=u.role_codes,
             role_names=[role.name for role in u.roles],
             is_active=u.is_active,
+            is_online=is_online(u.last_seen_at),
+            last_login_at=u.last_login_at,
             last_seen_at=u.last_seen_at,
         )
         for u in rows

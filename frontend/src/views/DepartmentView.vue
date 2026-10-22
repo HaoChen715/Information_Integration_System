@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import AppLayout from '../components/AppLayout.vue'
 import UserAvatar from '../components/UserAvatar.vue'
@@ -35,6 +35,30 @@ function deptCount(name: string): number {
   return allUsers.value.filter((u) => (u.department ?? '') === name).length
 }
 
+function fmtLogin(value: string | null): string {
+  if (!value) return '从未登录'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '--'
+  const p = (n: number) => String(n).padStart(2, '0')
+  const md = `${p(d.getMonth() + 1)}-${p(d.getDate())}`
+  const hm = `${p(d.getHours())}:${p(d.getMinutes())}`
+  return d.getFullYear() === new Date().getFullYear() ? `${md} ${hm}` : `${d.getFullYear()}-${md} ${hm}`
+}
+
+async function loadMembers() {
+  if (auth.isAdmin) {
+    allUsers.value = await fetchAdminUsers()
+    return
+  }
+  try {
+    members.value = await fetchDepartmentMembers()
+  } catch {
+    members.value = []
+  }
+}
+
+let refreshTimer: number | undefined
+
 onMounted(async () => {
   if (!auth.user) {
     try {
@@ -45,15 +69,16 @@ onMounted(async () => {
   }
   if (auth.isAdmin) {
     departments.value = await fetchDepartments()
-    allUsers.value = await fetchAdminUsers()
     if (departments.value.length) selectedDept.value = departments.value[0].name
-  } else {
-    try {
-      members.value = await fetchDepartmentMembers()
-    } catch {
-      members.value = []
-    }
   }
+  await loadMembers()
+  refreshTimer = window.setInterval(() => {
+    void loadMembers()
+  }, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 </script>
 
@@ -117,6 +142,20 @@ onMounted(async () => {
                 <p class="truncate text-xs text-slate-400">
                   {{ m.role_names.length ? m.role_names.join('、') : '@' + m.username }}
                 </p>
+                <div class="mt-1 flex items-center gap-1.5 text-[11px]">
+                  <span
+                    class="h-1.5 w-1.5 shrink-0 rounded-full"
+                    :class="m.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
+                  />
+                  <span
+                    class="shrink-0"
+                    :class="m.is_online ? 'text-emerald-600' : 'text-slate-400'"
+                  >
+                    {{ m.is_online ? '在线' : '离线' }}
+                  </span>
+                  <span class="text-slate-300">·</span>
+                  <span class="truncate text-slate-400">最近登录 {{ fmtLogin(m.last_login_at) }}</span>
+                </div>
               </div>
             </li>
             <li v-if="!members.length" class="px-2 py-8 text-center text-sm text-slate-400">暂无员工</li>
@@ -149,6 +188,20 @@ onMounted(async () => {
                 <p class="truncate text-xs text-slate-400">
                   {{ m.role_names.length ? m.role_names.join('、') : '@' + m.username }}
                 </p>
+                <div class="mt-1 flex items-center gap-1.5 text-[11px]">
+                  <span
+                    class="h-1.5 w-1.5 shrink-0 rounded-full"
+                    :class="m.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
+                  />
+                  <span
+                    class="shrink-0"
+                    :class="m.is_online ? 'text-emerald-600' : 'text-slate-400'"
+                  >
+                    {{ m.is_online ? '在线' : '离线' }}
+                  </span>
+                  <span class="text-slate-300">·</span>
+                  <span class="truncate text-slate-400">最近登录 {{ fmtLogin(m.last_login_at) }}</span>
+                </div>
               </div>
             </div>
             <p v-if="selectedDept && !adminMembers.length" class="col-span-full py-6 text-center text-sm text-slate-400">

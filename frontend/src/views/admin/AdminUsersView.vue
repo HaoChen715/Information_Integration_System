@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import AppLayout from '../../components/AppLayout.vue'
 import PermissionPicker from '../../components/PermissionPicker.vue'
 import UserAvatar from '../../components/UserAvatar.vue'
 import * as adminApi from '../../api/admin'
-import type { AdminUser, Department, PermissionGroup, Role, UserStats } from '../../api/admin'
+import type { AdminUser, Department, PermissionGroup, Role } from '../../api/admin'
 import { useAuthStore } from '../../stores/auth'
 
 const auth = useAuthStore()
@@ -14,7 +14,6 @@ const users = ref<AdminUser[]>([])
 const roles = ref<Role[]>([])
 const groups = ref<PermissionGroup[]>([])
 const departments = ref<Department[]>([])
-const stats = ref<UserStats | null>(null)
 
 const editing = ref<AdminUser | null>(null)
 const form = ref({
@@ -44,28 +43,36 @@ const canEditProfile = computed(() => auth.isAdmin)
 const disabledResources = computed(() => (auth.isAdmin ? [] : ['user', 'role']))
 
 const search = ref('')
+const presenceFilter = ref<'all' | 'online' | 'offline'>('all')
+const totalCount = computed(() => users.value.length)
+const onlineCount = computed(() => users.value.filter((u) => u.is_online).length)
+const offlineCount = computed(() => totalCount.value - onlineCount.value)
+
+function togglePresence(next: 'online' | 'offline') {
+  presenceFilter.value = presenceFilter.value === next ? 'all' : next
+}
+
 const filteredUsers = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return users.value
-  return users.value.filter(
-    (u) =>
+  return users.value.filter((u) => {
+    if (presenceFilter.value === 'online' && !u.is_online) return false
+    if (presenceFilter.value === 'offline' && u.is_online) return false
+    if (!q) return true
+    return (
       u.username.toLowerCase().includes(q) ||
       (u.full_name ?? '').toLowerCase().includes(q) ||
-      (u.department ?? '').toLowerCase().includes(q),
-  )
+      (u.department ?? '').toLowerCase().includes(q)
+    )
+  })
 })
 
 async function loadAll() {
-  const tasks: Promise<unknown>[] = [
+  await Promise.all([
     adminApi.fetchAdminUsers().then((v) => (users.value = v)),
     adminApi.fetchRoles().then((v) => (roles.value = v)),
     adminApi.fetchPermissions().then((v) => (groups.value = v)),
     adminApi.fetchDepartments().then((v) => (departments.value = v)),
-  ]
-  if (auth.isAdmin) {
-    tasks.push(adminApi.fetchStats().then((v) => (stats.value = v)).catch(() => {}))
-  }
-  await Promise.all(tasks)
+  ])
 }
 
 function openEdit(user: AdminUser) {
@@ -184,7 +191,21 @@ async function save() {
   }
 }
 
-onMounted(loadAll)
+let presenceTimer: number | undefined
+
+onMounted(async () => {
+  await loadAll()
+  presenceTimer = window.setInterval(() => {
+    void adminApi
+      .fetchAdminUsers()
+      .then((v) => (users.value = v))
+      .catch(() => {})
+  }, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (presenceTimer) clearInterval(presenceTimer)
+})
 </script>
 
 <template>
@@ -204,13 +225,30 @@ onMounted(loadAll)
       </button>
     </div>
 
-    <div v-if="auth.isAdmin" class="mt-4 flex flex-wrap gap-4 text-sm">
-      <span class="rounded-lg bg-white px-3 py-1.5 text-slate-600 ring-1 ring-slate-200">
-        已注册 <b class="text-slate-800">{{ stats?.total_users ?? '—' }}</b> 人
-      </span>
-      <span class="rounded-lg bg-white px-3 py-1.5 text-slate-600 ring-1 ring-slate-200">
-        当前在线 <b class="text-emerald-600">{{ stats?.online_users ?? '—' }}</b> 人
-      </span>
+    <div class="mt-4 flex flex-wrap gap-3 text-sm">
+      <button
+        class="rounded-lg px-3 py-1.5 ring-1 transition"
+        :class="presenceFilter === 'all' ? 'bg-indigo-50 text-indigo-700 ring-indigo-200' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'"
+        @click="presenceFilter = 'all'"
+      >
+        已注册 <b class="text-slate-800">{{ totalCount }}</b> 人
+      </button>
+      <button
+        class="rounded-lg px-3 py-1.5 ring-1 transition"
+        :class="presenceFilter === 'online' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'"
+        @click="togglePresence('online')"
+      >
+        <span class="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500 align-middle" />
+        当前在线 <b class="text-emerald-600">{{ onlineCount }}</b> 人
+      </button>
+      <button
+        class="rounded-lg px-3 py-1.5 ring-1 transition"
+        :class="presenceFilter === 'offline' ? 'bg-slate-100 text-slate-700 ring-slate-300' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'"
+        @click="togglePresence('offline')"
+      >
+        <span class="mr-1 inline-block h-2 w-2 rounded-full bg-slate-300 align-middle" />
+        不在线 <b class="text-slate-700">{{ offlineCount }}</b> 人
+      </button>
     </div>
 
     <div class="mt-4 flex items-center gap-3">
@@ -230,6 +268,7 @@ onMounted(loadAll)
             <th class="px-5 py-3">姓名</th>
             <th class="px-5 py-3">部门</th>
             <th class="px-5 py-3">来源</th>
+            <th class="px-5 py-3">状态</th>
             <th class="px-5 py-3">角色</th>
             <th class="px-5 py-3">权限数</th>
             <th class="px-5 py-3">操作</th>
@@ -249,6 +288,17 @@ onMounted(loadAll)
             <td class="px-5 py-3 text-slate-500">{{ u.full_name || '—' }}</td>
             <td class="px-5 py-3 text-slate-500">{{ u.department || '—' }}</td>
             <td class="px-5 py-3 text-slate-500">{{ u.auth_source }}</td>
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2">
+                <span
+                  class="h-2 w-2 rounded-full"
+                  :class="u.is_online ? 'bg-emerald-500' : 'bg-slate-300'"
+                />
+                <span :class="u.is_online ? 'text-emerald-600' : 'text-slate-400'">
+                  {{ u.is_online ? '在线' : '离线' }}
+                </span>
+              </div>
+            </td>
             <td class="px-5 py-3">
               <span
                 v-for="r in u.role_names"

@@ -6,7 +6,7 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `../images/iis-images-<版本>.tar` | 离线镜像包(含后端 `iis-backend` 与前端 `iis-frontend`) |
+| `../images/iis-images-<版本>.tar` | 离线镜像包(含 `iis-backend`、`iis-frontend` 与 `postgres:16-alpine`) |
 | `docker-compose.deploy.yml` | 内网部署用 compose(仅使用已加载镜像) |
 | `.env.example` | 配置样例,复制为 `.env` 后修改 |
 | `diagnose.sh` | 一键收集诊断信息,供带回外网排错 |
@@ -21,8 +21,8 @@
 ## 3. 部署步骤
 
 ```bash
-# ① 加载镜像
-docker load -i images/iis-images-0.23.1.tar
+# ① 加载镜像(含后端、前端、PostgreSQL,一次导入)
+docker load -i images/iis-images-0.23.2.tar
 
 # ② 准备配置
 cp .env.example .env

@@ -3,12 +3,17 @@ import axios, { type AxiosInstance } from 'axios'
 const TOKEN_KEY = 'iis_token'
 const COOKIE_MAX_AGE = 8 * 60 * 60
 
+function cookieAttrs(): string {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+  return `; Path=/; SameSite=Lax${secure}`
+}
+
 function setCookie(name: string, value: string): void {
-  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE}`
+  document.cookie = `${name}=${encodeURIComponent(value)}${cookieAttrs()}; Max-Age=${COOKIE_MAX_AGE}`
 }
 
 function clearCookie(name: string): void {
-  document.cookie = `${name}=; Path=/; SameSite=Lax; Max-Age=0`
+  document.cookie = `${name}=${cookieAttrs()}; Max-Age=0`
 }
 
 export function getToken(): string | null {

@@ -2,3 +2,10 @@ dist/
 logs/
 .env
 iis-diagnose-*.tar.gz
+
+# TLS 私钥/证书不入库
+certs/*.key
+certs/*.crt
+certs/*.pem
+certs/*.srl
+certs/*.csr

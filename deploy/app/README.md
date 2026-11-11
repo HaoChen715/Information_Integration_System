@@ -10,6 +10,7 @@
 | `docker-compose.deploy.yml` | 内网部署用 compose(仅使用已加载镜像) |
 | `.env.example` | 配置样例,复制为 `.env` 后修改 |
 | `diagnose.sh` | 一键收集诊断信息,供带回外网排错 |
+| `certs/` | TLS 证书目录(放 `server.crt`、`server.key` 后自动启用 HTTPS) |
 | `docker-compose.yml` | 开发/构建用 compose(含 build 段,内网不需使用) |
 
 ## 2. 环境要求
@@ -22,7 +23,7 @@
 
 ```bash
 # ① 加载镜像(含后端、前端、PostgreSQL,一次导入)
-docker load -i images/iis-images-0.23.2.tar
+docker load -i images/iis-images-0.24.0.tar
 
 # ② 准备配置
 cp .env.example .env
@@ -40,12 +41,37 @@ docker compose -f docker-compose.deploy.yml ps
 默认配置下,首次启动会用 `BOOTSTRAP_ADMIN_USERNAME/PASSWORD` 自动创建管理员
 (`admin / admin123`),**登录成功后请立即修改密码并清空 `.env` 中的引导配置**。
 
+### 3.1 启用 HTTPS(域名访问,自签 CA)
+
+系统同时监听 80 与 443,可保留 `http://IP:8080` 与 `https://域名` 两个入口。
+
+1. 把内网 CA 签发的证书放到 `certs/`:
+   - `certs/server.crt`(服务器证书,建议含完整链)
+   - `certs/server.key`(私钥)
+2. 证书 SAN 需包含实际域名;若要用 `https://IP`,还需加 IP SAN
+3. `.env` 中 `HTTPS_PORT=443`(默认),放行防火墙对应端口:
+   ```bash
+   sudo firewall-cmd --permanent --add-port=443/tcp && sudo firewall-cmd --reload
+   ```
+   > 若 443 已被其它服务占用(如 Baserow 映射了 80/443),可改为 `HTTPS_PORT=8443`,
+   > 并放行 `8443`,访问地址变为 `https://<域名>:8443`。
+4. 重启前端:
+   ```bash
+   docker compose -f docker-compose.deploy.yml up -d frontend
+   ```
+5. 访问 `https://<域名>`。没有证书时 443 自动不启用,不影响 HTTP。
+
+> 内网自签 CA:需将根证书 `ca.crt` 安装到客户端"受信任的根证书颁发机构"。
+> 启用 OIDC 时同步改 `OIDC_REDIRECT_URI` / `OIDC_POST_LOGIN_REDIRECT` 为 `https://域名/...`,
+> 并设置 `OIDC_COOKIE_SECURE=true`。
+
 ## 4. 配置说明(`.env`)
 
 | 变量 | 说明 |
 | --- | --- |
 | `SECRET_KEY` | JWT 签名密钥,**必须改为 ≥32 字节随机字符串** |
-| `HTTP_PORT` | 前端对外端口,默认 8080 |
+| `HTTP_PORT` | 前端对外 HTTP 端口,默认 8080 |
+| `HTTPS_PORT` | 前端对外 HTTPS 端口,默认 443(有证书时启用) |
 | `TAG` | 镜像版本标签,须与加载的镜像一致 |
 | `BOOTSTRAP_ADMIN_*` | 首次启动自动创建的管理员(创建后建议清空) |
 | `AUTH_BACKENDS` | 认证后端顺序,如 `["local","ldap"]` |

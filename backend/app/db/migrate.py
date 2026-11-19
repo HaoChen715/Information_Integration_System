@@ -15,12 +15,14 @@ _ADDED_COLUMNS = [
     ("baserow_sources", "departments", "TEXT"),
     ("baserow_tables", "title_field", "VARCHAR(128)"),
     ("data_tables", "department_field", "VARCHAR(64)"),
+    ("data_tables", "visible_departments", "JSON"),
 ]
 
 # (表, 列, 回填默认值 SQL 字面量)
 _BACKFILLS = [
     ("baserow_tables", "title_field", "''"),
     ("data_tables", "department_field", "''"),
+    ("data_tables", "visible_departments", "'[]'"),
 ]
 
 
@@ -33,6 +35,12 @@ def ensure_columns(engine: Engine) -> None:
         existing = {col["name"] for col in inspector.get_columns(table)}
         if column in existing:
             continue
+        if (table, column) == ("data_tables", "visible_departments"):
+            ddl = (
+                "JSONB NOT NULL DEFAULT '[]'::jsonb"
+                if engine.dialect.name == "postgresql"
+                else "JSON NOT NULL DEFAULT '[]'"
+            )
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
 

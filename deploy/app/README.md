@@ -23,7 +23,7 @@
 
 ```bash
 # ① 加载镜像(含后端、前端、PostgreSQL,一次导入)
-docker load -i images/iis-images-0.25.1.tar
+docker load -i images/iis-images-0.26.0.tar
 
 # ② 准备配置
 cp .env.example .env

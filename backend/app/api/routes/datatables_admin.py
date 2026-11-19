@@ -20,6 +20,7 @@ def table_out(table) -> TableOut:
         description=table.description,
         title_field=table.title_field,
         scope_by_department=table.scope_by_department,
+        visible_departments=table.visible_departments or [],
         department_field=table.department_field or "",
         fields=[
             FieldOut(

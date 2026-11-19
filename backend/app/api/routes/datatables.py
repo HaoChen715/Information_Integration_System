@@ -35,6 +35,11 @@ def _table_or_404(db: Session, code: str):
     return table
 
 
+def _ensure_table_access(table, user: User) -> None:
+    if not crud.table_visible(table, user, _is_global(user)):
+        raise HTTPException(status_code=403, detail="无权访问该数据表")
+
+
 def _check_record_access(
     db: Session, table, record, user: User, perm_code: str, is_global: bool
 ) -> None:
@@ -50,7 +55,10 @@ def list_tables(
     db: Session = Depends(get_db),
     current: User = Depends(require_permission("data:view")),
 ) -> list[TableOut]:
-    return [table_out(t) for t in crud.list_tables(db)]
+    tables = crud.list_tables(db)
+    if not _is_global(current):
+        tables = [t for t in tables if crud.table_visible(t, current, False)]
+    return [table_out(t) for t in tables]
 
 
 @router.get("/{code}/records", response_model=list[RecordOut], summary="记录列表")
@@ -61,6 +69,7 @@ def list_records(
     current: User = Depends(require_permission("data:view")),
 ) -> list[RecordOut]:
     table = _table_or_404(db, code)
+    _ensure_table_access(table, current)
     scope = _scope_of(db, current, "data:view") or "self"
     records = crud.list_records(db, table, current, scope, _is_global(current), search)
     return [
@@ -84,6 +93,7 @@ def create_record(
     current: User = Depends(require_permission("data:create")),
 ) -> RecordOut:
     table = _table_or_404(db, code)
+    _ensure_table_access(table, current)
     record = crud.create_record(db, table, current, dict(payload.data))
     return RecordOut(
         id=record.id,
@@ -104,11 +114,12 @@ def update_record(
     current: User = Depends(require_permission("data:edit")),
 ) -> RecordOut:
     table = _table_or_404(db, code)
+    _ensure_table_access(table, current)
     record = crud.get_record(db, table, record_id)
     if record is None:
         raise HTTPException(status_code=404, detail="记录不存在")
     _check_record_access(db, table, record, current, "data:edit", _is_global(current))
-    record = crud.update_record(db, table, record, dict(payload.data))
+    record = crud.update_record(db, record, dict(payload.data))
     return RecordOut(
         id=record.id,
         data=record.data or {},
@@ -127,6 +138,7 @@ def delete_record(
     current: User = Depends(require_permission("data:delete")),
 ) -> dict[str, bool]:
     table = _table_or_404(db, code)
+    _ensure_table_access(table, current)
     record = crud.get_record(db, table, record_id)
     if record is None:
         raise HTTPException(status_code=404, detail="记录不存在")
@@ -143,6 +155,7 @@ def record_stats(
     current: User = Depends(require_permission("data:view")),
 ) -> dict[str, Any]:
     table = _table_or_404(db, code)
+    _ensure_table_access(table, current)
     scope = _scope_of(db, current, "data:view") or "self"
     records = crud.list_records(db, table, current, scope, _is_global(current))
     counts: dict[str, int] = {}

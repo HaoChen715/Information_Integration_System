@@ -52,7 +52,7 @@ const form = ref({
   description: '',
   title_field: '',
   scope_by_department: true,
-  department_field: '',
+  visible_departments: [] as string[],
   fields: [] as FieldDraft[],
 })
 
@@ -63,22 +63,6 @@ const fieldKeyOptions = computed(() =>
 
 function needsOptions(type: string): boolean {
   return type === 'single_select' || type === 'multiple_select'
-}
-
-function isDeptField(key: string): boolean {
-  return form.value.scope_by_department && form.value.department_field === key
-}
-
-function onDepartmentFieldChange() {
-  const field = form.value.fields.find((f) => f.key === form.value.department_field)
-  if (field) field.type = 'single_select'
-}
-
-function departmentFieldOptions(): FieldOption[] {
-  return departments.value.map((d, i) => ({
-    value: d.name,
-    color: OPTION_COLORS[i % OPTION_COLORS.length],
-  }))
 }
 
 function parseOptions(text: string): FieldOption[] {
@@ -120,7 +104,7 @@ function openCreate() {
     description: '',
     title_field: '',
     scope_by_department: true,
-    department_field: '',
+    visible_departments: [],
     fields: [],
   }
   addField()
@@ -136,11 +120,11 @@ function openEdit(table: DataTable) {
     description: table.description ?? '',
     title_field: table.title_field ?? '',
     scope_by_department: table.scope_by_department,
-    department_field: table.department_field ?? '',
+    visible_departments: [...(table.visible_departments ?? [])],
     fields: table.fields.map((f) => ({
       key: f.key,
       label: f.label,
-      type: table.department_field === f.key ? 'single_select' : f.type,
+      type: f.type,
       required: f.required,
       optionsText: (f.options ?? []).map((o) => o.value).join('\n'),
     })),
@@ -178,9 +162,12 @@ function buildPayload(): TablePayload | null {
     saveError.value = '请填写表名称'
     return null
   }
+  if (form.value.scope_by_department && !form.value.visible_departments.length) {
+    saveError.value = '按部门隔离时,请至少选择一个可见部门'
+    return null
+  }
   const keys = new Set<string>()
   const fields = []
-  const deptOptions = departmentFieldOptions()
   for (const f of form.value.fields) {
     const key = f.key.trim()
     const label = f.label.trim()
@@ -197,13 +184,12 @@ function buildPayload(): TablePayload | null {
       return null
     }
     keys.add(key)
-    const deptField = form.value.scope_by_department && key === form.value.department_field
     fields.push({
       key,
       label,
-      type: deptField ? 'single_select' : f.type,
+      type: f.type,
       required: f.required,
-      options: deptField ? deptOptions : needsOptions(f.type) ? parseOptions(f.optionsText) : [],
+      options: needsOptions(f.type) ? parseOptions(f.optionsText) : [],
     })
   }
   return {
@@ -212,7 +198,7 @@ function buildPayload(): TablePayload | null {
     description: form.value.description.trim() || null,
     title_field: form.value.title_field,
     scope_by_department: form.value.scope_by_department,
-    department_field: form.value.scope_by_department ? form.value.department_field : '',
+    visible_departments: form.value.scope_by_department ? form.value.visible_departments : [],
     fields,
   }
 }
@@ -300,7 +286,7 @@ onMounted(load)
         <div class="mt-3 flex items-center gap-3 text-xs text-slate-400">
           <span>{{ t.fields.length }} 个字段</span>
           <span>·</span>
-          <span>{{ t.scope_by_department ? t.department_field || '创建者部门' : '全部门可见' }}</span>
+          <span>{{ t.scope_by_department ? (t.visible_departments?.join('、') || '未设置部门') : '全部门可见' }}</span>
         </div>
         <div class="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3">
           <button class="text-sm text-indigo-600 hover:underline" @click="openEdit(t)">编辑</button>
@@ -364,17 +350,30 @@ onMounted(load)
               按部门隔离数据
             </label>
           </div>
-          <label v-if="form.scope_by_department" class="block sm:col-span-2">
-            <span class="mb-1 block text-sm text-slate-600">部门字段</span>
-            <select
-              v-model="form.department_field"
-              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              @change="onDepartmentFieldChange"
-            >
-              <option value="">不指定(记录归属创建者部门)</option>
-              <option v-for="f in fieldKeyOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
-            </select>
-          </label>
+          <div v-if="form.scope_by_department" class="block sm:col-span-2">
+            <span class="mb-1 block text-sm text-slate-600">归属 / 可见部门 *</span>
+            <div class="flex flex-wrap gap-2">
+              <label
+                v-for="d in departments"
+                :key="d.id"
+                class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                <input
+                  v-model="form.visible_departments"
+                  type="checkbox"
+                  :value="d.name"
+                  class="h-3.5 w-3.5 accent-indigo-500"
+                />
+                {{ d.name }}
+              </label>
+              <span v-if="!departments.length" class="text-sm text-slate-400">
+                暂无部门,请先在「部门管理」创建
+              </span>
+            </div>
+            <span class="mt-1 block text-[11px] text-slate-400">
+              记录按这里选择的部门归属;用户只能看到自己部门在其中的数据表
+            </span>
+          </div>
         </div>
 
         <div class="mt-6">
@@ -415,25 +414,13 @@ onMounted(load)
                   <input v-model="f.required" type="checkbox" class="h-3.5 w-3.5 accent-indigo-500" />
                   必填
                 </label>
-                <span
-                  v-if="isDeptField(f.key)"
-                  class="mb-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600"
-                >
-                  部门选项
-                </span>
                 <div class="ml-auto flex items-center gap-1 pb-1">
                   <button class="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white hover:text-slate-600" @click="moveField(i, -1)">↑</button>
                   <button class="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white hover:text-slate-600" @click="moveField(i, 1)">↓</button>
                   <button class="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-50" @click="removeField(i)">删除</button>
                 </div>
               </div>
-              <div
-                v-if="isDeptField(f.key)"
-                class="mt-2 rounded-lg bg-indigo-50/70 px-3 py-2 text-xs text-indigo-700"
-              >
-                选项自动取自「部门管理」中已创建的 {{ departments.length }} 个部门,无需手动填写。
-              </div>
-              <label v-else-if="needsOptions(f.type)" class="mt-2 block">
+              <label v-if="needsOptions(f.type)" class="mt-2 block">
                 <span class="mb-1 block text-xs text-slate-500">可选项(每行一个或逗号分隔)</span>
                 <textarea
                   v-model="f.optionsText"

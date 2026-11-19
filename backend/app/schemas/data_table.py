@@ -29,6 +29,7 @@ class TableCreate(BaseModel):
     description: Optional[str] = None
     title_field: str = ""
     scope_by_department: bool = True
+    visible_departments: list[str] = []
     department_field: str = ""
     fields: list[FieldDef] = []
 
@@ -38,6 +39,7 @@ class TableUpdate(BaseModel):
     description: Optional[str] = None
     title_field: Optional[str] = None
     scope_by_department: Optional[bool] = None
+    visible_departments: Optional[list[str]] = None
     department_field: Optional[str] = None
     fields: Optional[list[FieldDef]] = None
 
@@ -49,6 +51,7 @@ class TableOut(BaseModel):
     description: Optional[str] = None
     title_field: str
     scope_by_department: bool
+    visible_departments: list[str] = []
     department_field: str = ""
     fields: list[FieldOut] = []
 

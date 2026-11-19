@@ -21,6 +21,7 @@ export interface DataTable {
   description: string | null
   title_field: string
   scope_by_department: boolean
+  visible_departments: string[]
   department_field: string
   fields: DataField[]
 }
@@ -39,6 +40,7 @@ export interface TablePayload {
   description?: string | null
   title_field?: string
   scope_by_department?: boolean
+  visible_departments?: string[]
   department_field?: string
   fields: FieldDef[]
 }

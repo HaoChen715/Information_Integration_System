@@ -43,6 +43,7 @@ def create_table(db: Session, data: TableCreate) -> DataTable:
         description=data.description,
         title_field=data.title_field,
         scope_by_department=data.scope_by_department,
+        visible_departments=list(data.visible_departments or []),
         department_field=data.department_field,
     )
     _replace_fields(db, table, data.fields)
@@ -61,6 +62,8 @@ def update_table(db: Session, table: DataTable, data: TableUpdate) -> DataTable:
         table.title_field = data.title_field
     if data.scope_by_department is not None:
         table.scope_by_department = data.scope_by_department
+    if data.visible_departments is not None:
+        table.visible_departments = list(data.visible_departments)
     if data.department_field is not None:
         table.department_field = data.department_field
     if data.fields is not None:
@@ -76,15 +79,21 @@ def delete_table(db: Session, table: DataTable) -> None:
 
 
 # ---------------- 记录与数据范围 ----------------
+def table_visible(table: DataTable, user: User, is_global: bool) -> bool:
+    if is_global or not table.scope_by_department:
+        return True
+    depts = table.visible_departments or []
+    if not depts:
+        return True
+    return bool(user.department) and user.department in depts
+
+
 def record_visible(table: DataTable, record: DataRecord, user: User, scope: str, is_global: bool) -> bool:
     if is_global or scope == "all":
         return True
-    if scope == "dept":
-        if table.scope_by_department and user.department:
-            return record.department == user.department
+    if scope == "self":
         return record.owner_username == user.username
-    # self / 无范围
-    return record.owner_username == user.username
+    return table_visible(table, user, is_global)
 
 
 def list_records(
@@ -97,10 +106,10 @@ def list_records(
 ) -> list[DataRecord]:
     stmt = select(DataRecord).where(DataRecord.table_id == table.id)
     if not (is_global or scope == "all"):
-        if scope == "dept" and table.scope_by_department and user.department:
-            stmt = stmt.where(DataRecord.department == user.department)
-        else:
+        if scope == "self":
             stmt = stmt.where(DataRecord.owner_username == user.username)
+        elif not table_visible(table, user, is_global):
+            return []
     records = list(db.execute(stmt.order_by(DataRecord.id.desc())).scalars())
     if search:
         q = search.lower()
@@ -122,8 +131,11 @@ def get_record(db: Session, table: DataTable, record_id: int) -> Optional[DataRe
 def create_record(db: Session, table: DataTable, user: User, data: dict) -> DataRecord:
     department = None
     if table.scope_by_department:
-        if table.department_field and data.get(table.department_field) not in (None, ""):
-            department = str(data[table.department_field])
+        depts = table.visible_departments or []
+        if user.department and (not depts or user.department in depts):
+            department = user.department
+        elif depts:
+            department = depts[0]
         else:
             department = user.department
     record = DataRecord(
@@ -138,12 +150,8 @@ def create_record(db: Session, table: DataTable, user: User, data: dict) -> Data
     return record
 
 
-def update_record(db: Session, table: DataTable, record: DataRecord, data: dict) -> DataRecord:
+def update_record(db: Session, record: DataRecord, data: dict) -> DataRecord:
     record.data = data
-    if table.scope_by_department and table.department_field:
-        dept = data.get(table.department_field)
-        if dept not in (None, ""):
-            record.department = str(dept)
     db.add(record)
     db.commit()
     db.refresh(record)

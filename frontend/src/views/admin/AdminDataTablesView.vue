@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import AppLayout from '../../components/AppLayout.vue'
 import * as dtApi from '../../api/datatables'
 import * as adminApi from '../../api/admin'
+import { parseCreateTableDdl } from '../../utils/ddl'
 import type { Department } from '../../api/admin'
 import type { DataTable, FieldOption, TablePayload } from '../../api/datatables'
 
@@ -45,6 +46,9 @@ const showEditor = ref(false)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const saveError = ref('')
+const ddlText = ref('')
+const ddlError = ref('')
+const ddlNotice = ref('')
 
 const form = ref({
   code: '',
@@ -98,6 +102,9 @@ async function load() {
 function openCreate() {
   editingId.value = null
   saveError.value = ''
+  ddlText.value = ''
+  ddlError.value = ''
+  ddlNotice.value = ''
   form.value = {
     code: '',
     name: '',
@@ -114,6 +121,8 @@ function openCreate() {
 function openEdit(table: DataTable) {
   editingId.value = table.id
   saveError.value = ''
+  ddlError.value = ''
+  ddlNotice.value = ''
   form.value = {
     code: table.code,
     name: table.name,
@@ -150,6 +159,21 @@ function moveField(index: number, delta: number) {
   if (next < 0 || next >= form.value.fields.length) return
   const [item] = form.value.fields.splice(index, 1)
   form.value.fields.splice(next, 0, item)
+}
+
+function applyDdl() {
+  ddlError.value = ''
+  ddlNotice.value = ''
+  try {
+    const parsed = parseCreateTableDdl(ddlText.value)
+    form.value.code = parsed.code
+    form.value.name = parsed.name
+    form.value.fields = parsed.fields
+    form.value.title_field = parsed.fields[0]?.key || ''
+    ddlNotice.value = `已解析 ${parsed.fields.length} 个字段,请确认表标识、可见部门后保存。`
+  } catch (err: unknown) {
+    ddlError.value = (err as Error)?.message || 'DDL 解析失败'
+  }
 }
 
 function buildPayload(): TablePayload | null {
@@ -309,6 +333,31 @@ onMounted(load)
             <p class="mt-0.5 text-xs text-slate-400">定义表信息与字段,保存后立即可在数据看板使用</p>
           </div>
           <button class="text-slate-400 hover:text-slate-600" @click="closeEditor">✕</button>
+        </div>
+
+        <div v-if="!isEditing" class="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="text-sm font-semibold text-indigo-700">从 DDL 快速创建</p>
+              <p class="mt-0.5 text-[11px] text-indigo-500">
+                粘贴 CREATE TABLE 语句,自动解析表名与字段(不执行 SQL,仅生成表定义)
+              </p>
+            </div>
+            <button
+              class="rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-600"
+              @click="applyDdl"
+            >
+              解析并填充
+            </button>
+          </div>
+          <textarea
+            v-model="ddlText"
+            rows="4"
+            placeholder="CREATE TABLE assets (&#10;  name VARCHAR(128) NOT NULL,&#10;  status VARCHAR(32) CHECK (status IN ('在用','闲置')),&#10;  amount NUMERIC(12,2)&#10;);"
+            class="mt-3 w-full rounded-lg border border-indigo-100 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-indigo-300"
+          />
+          <p v-if="ddlError" class="mt-1 text-xs text-red-500">{{ ddlError }}</p>
+          <p v-if="ddlNotice" class="mt-1 text-xs text-emerald-600">{{ ddlNotice }}</p>
         </div>
 
         <div class="mt-5 grid gap-4 sm:grid-cols-2">

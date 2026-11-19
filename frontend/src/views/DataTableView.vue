@@ -374,22 +374,22 @@ onMounted(load)
 
     <div
       v-if="detail"
-      class="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       @click.self="detail = null"
     >
-      <div class="h-full w-full max-w-md overflow-y-auto bg-white p-6 shadow-2xl">
+      <div class="modal-in max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <h2 class="truncate text-lg font-bold text-slate-800">{{ recordTitle(detail) }}</h2>
+            <h2 class="truncate text-xl font-bold text-slate-800">{{ recordTitle(detail) }}</h2>
             <p class="mt-0.5 text-xs text-slate-400">{{ detail.department || '未设置部门' }} · {{ detail.owner_username }}</p>
           </div>
           <button class="text-slate-400 hover:text-slate-600" @click="detail = null">✕</button>
         </div>
 
-        <div class="mt-5 space-y-2">
-          <div v-for="f in fields" :key="f.id" class="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div v-for="f in fields" :key="f.id" class="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
             <p class="text-[11px] text-slate-400">{{ f.label }}</p>
-            <div class="mt-0.5 text-sm text-slate-700">
+            <div class="mt-1 text-sm text-slate-700">
               <span
                 v-if="f.type === 'single_select' || f.type === 'multiple_select'"
                 class="inline-flex flex-wrap gap-1"
@@ -414,7 +414,7 @@ onMounted(load)
           创建 {{ new Date(detail.created_at).toLocaleString() }} · 更新 {{ new Date(detail.updated_at).toLocaleString() }}
         </p>
 
-        <div class="mt-5 flex gap-2">
+        <div class="mt-5 flex gap-2 border-t border-slate-100 pt-4">
           <button class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600" @click="backToTable">
             去表格视图编辑
           </button>
@@ -424,3 +424,19 @@ onMounted(load)
     </div>
   </AppLayout>
 </template>
+
+<style scoped>
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.modal-in {
+  animation: modal-in 0.18s ease-out;
+}
+</style>

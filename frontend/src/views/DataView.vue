@@ -228,20 +228,6 @@ async function remove(record: DataRecord) {
         >
           搜索
         </button>
-        <button
-          v-if="activeTable"
-          class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-          @click="openPanel"
-        >
-          面板视图
-        </button>
-        <button
-          v-if="canCreate && activeTable"
-          class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
-          @click="openCreate"
-        >
-          新增
-        </button>
       </div>
     </div>
 
@@ -286,7 +272,22 @@ async function remove(record: DataRecord) {
               <p class="truncate text-sm font-semibold text-slate-800">{{ activeTable.name }}</p>
               <p class="truncate text-xs text-slate-400">{{ activeTable.description || '—' }}</p>
             </div>
-            <span class="text-xs text-slate-400">{{ rows.length }} 条记录</span>
+            <div class="ml-auto flex items-center gap-2">
+              <span class="text-xs text-slate-400">{{ rows.length }} 条记录</span>
+              <button
+                class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                @click="openPanel"
+              >
+                面板视图
+              </button>
+              <button
+                v-if="canCreate"
+                class="rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-600"
+                @click="openCreate"
+              >
+                新增
+              </button>
+            </div>
           </div>
 
           <div v-if="loading" class="px-5 py-10 text-center text-sm text-slate-400">加载中...</div>

@@ -32,6 +32,9 @@ const canDelete = computed(() => auth.hasPermission('data:delete'))
 
 const GROUP_COLORS = ['#eef2ff', '#ecfdf5', '#fffbeb', '#fef2f2', '#ecfeff', '#faf5ff', '#f1f5f9', '#fdf2f8']
 const OPTION_COLORS = ['#e0e7ff', '#dcfce7', '#fef3c7', '#fee2e2', '#cffafe', '#f3e8ff', '#f1f5f9', '#fce7f3']
+const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#ec4899', '#84cc16']
+const analysisKey = ref('')
+const chartType = ref<'bar' | 'pie'>('bar')
 
 const fields = computed<DataField[]>(() => table.value?.fields ?? [])
 const titleField = computed<DataField | undefined>(() => {
@@ -162,6 +165,63 @@ const summary = computed(() => ({
   filters: activeFilters.value.length,
 }))
 
+const analysisOptions = computed(() => [
+  { key: '__department', label: '部门' },
+  ...fields.value.map((f) => ({ key: f.key, label: f.label })),
+])
+
+const analysisData = computed(() => {
+  const key = analysisKey.value
+  if (!key) return []
+  const field = key === '__department' ? undefined : fields.value.find((f) => f.key === key)
+  const map = new Map<string, number>()
+  for (const row of filteredRows.value) {
+    const label = key === '__department' ? row.department || '（空）' : cellText(field, row.data[key]) || '（空）'
+    map.set(label, (map.get(label) || 0) + 1)
+  }
+  const total = filteredRows.value.length || 1
+  return [...map.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([label, count], index) => ({
+      label,
+      count,
+      pct: Math.round((count / total) * 100),
+      color: CHART_COLORS[index % CHART_COLORS.length],
+      selected: filters.value[key] === label,
+      key,
+    }))
+})
+
+const donutStyle = computed(() => {
+  const items = analysisData.value
+  const total = items.reduce((acc, item) => acc + item.count, 0) || 1
+  let acc = 0
+  const stops = items.map((item) => {
+    const start = (acc / total) * 360
+    acc += item.count
+    const end = (acc / total) * 360
+    return `${item.color} ${start}deg ${end}deg`
+  })
+  return { background: items.length ? `conic-gradient(${stops.join(',')})` : '#f1f5f9' }
+})
+
+const fieldCompletion = computed(() =>
+  fields.value.slice(0, 8).map((field) => {
+    const total = filteredRows.value.length || 1
+    const filled = filteredRows.value.filter((row) => {
+      const value = row.data[field.key]
+      if (Array.isArray(value)) return value.length > 0
+      return value !== null && value !== undefined && value !== ''
+    }).length
+    return { key: field.key, label: field.label, pct: Math.round((filled / total) * 100) }
+  }),
+)
+
+function drillDown(item: { key: string; label: string }) {
+  filters.value[item.key] = filters.value[item.key] === item.label ? '' : item.label
+}
+
 async function loadTable() {
   loading.value = true
   error.value = ''
@@ -178,6 +238,9 @@ async function loadTable() {
     if (!groupBy.value || !found.fields.some((f) => f.key === groupBy.value)) {
       const firstGroupable = found.fields.find((f) => f.type === 'single_select')
       groupBy.value = firstGroupable?.key || ''
+    }
+    if (!analysisKey.value || !found.fields.some((f) => f.key === analysisKey.value)) {
+      analysisKey.value = groupBy.value || found.fields[0]?.key || '__department'
     }
   } catch (err: unknown) {
     error.value =
@@ -437,6 +500,98 @@ onMounted(load)
           {{ f.label }} = {{ f.value }}
           <span class="text-indigo-400 group-hover:text-indigo-700">✕</span>
         </button>
+      </div>
+    </div>
+
+    <div class="mt-4 grid gap-4 lg:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm font-semibold text-slate-700">分布分析</p>
+          <div class="flex items-center gap-2">
+            <select v-model="analysisKey" class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm">
+              <option v-for="o in analysisOptions" :key="o.key" :value="o.key">{{ o.label }}</option>
+            </select>
+            <div class="flex overflow-hidden rounded-lg border border-slate-200 text-xs">
+              <button
+                class="px-2.5 py-1.5 transition"
+                :class="chartType === 'bar' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-50'"
+                @click="chartType = 'bar'"
+              >
+                柱状
+              </button>
+              <button
+                class="px-2.5 py-1.5 transition"
+                :class="chartType === 'pie' ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-50'"
+                @click="chartType = 'pie'"
+              >
+                环形
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!analysisData.length" class="py-10 text-center text-sm text-slate-400">暂无可分析数据</div>
+        <div v-else-if="chartType === 'bar'" class="mt-4 space-y-2">
+          <button
+            v-for="item in analysisData"
+            :key="item.label"
+            class="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition"
+            :class="item.selected ? 'bg-indigo-50' : 'hover:bg-slate-50'"
+            @click="drillDown(item)"
+          >
+            <span class="w-24 shrink-0 truncate text-xs text-slate-500" :title="item.label">{{ item.label }}</span>
+            <div class="h-5 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <div
+                class="flex h-full items-center justify-end rounded-full pr-1.5 text-[10px] font-medium text-white"
+                :style="{ width: Math.max(item.pct, 5) + '%', background: item.color }"
+              >
+                {{ item.count }}
+              </div>
+            </div>
+            <span class="w-14 shrink-0 text-right text-[11px] text-slate-400">{{ item.pct }}%</span>
+          </button>
+        </div>
+        <div v-else class="mt-4 flex flex-wrap items-center gap-6">
+          <div class="relative h-40 w-40 shrink-0 rounded-full" :style="donutStyle">
+            <div class="absolute inset-7 flex flex-col items-center justify-center rounded-full bg-white">
+              <span class="text-2xl font-bold text-slate-800">{{ summary.total }}</span>
+              <span class="text-[11px] text-slate-400">条记录</span>
+            </div>
+          </div>
+          <div class="grid min-w-[180px] flex-1 gap-1.5">
+            <button
+              v-for="item in analysisData"
+              :key="item.label"
+              class="flex items-center gap-2 rounded-lg px-2 py-1 text-left text-sm"
+              :class="item.selected ? 'bg-indigo-50' : 'hover:bg-slate-50'"
+              @click="drillDown(item)"
+            >
+              <span class="h-3 w-3 shrink-0 rounded-sm" :style="{ background: item.color }" />
+              <span class="flex-1 truncate text-slate-600">{{ item.label }}</span>
+              <span class="text-xs text-slate-400">{{ item.count }} · {{ item.pct }}%</span>
+            </button>
+          </div>
+        </div>
+        <p class="mt-3 text-[11px] text-slate-400">点击分布可按该值下钻筛选(最多展示前 8 项)</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-5">
+        <p class="text-sm font-semibold text-slate-700">字段完整度</p>
+        <div class="mt-3 space-y-3">
+          <div v-for="c in fieldCompletion" :key="c.key">
+            <div class="flex items-center justify-between text-xs">
+              <span class="truncate text-slate-500">{{ c.label }}</span>
+              <span class="text-slate-400">{{ c.pct }}%</span>
+            </div>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-cyan-400"
+                :style="{ width: c.pct + '%' }"
+              />
+            </div>
+          </div>
+          <p v-if="!fieldCompletion.length" class="py-6 text-center text-sm text-slate-400">暂无字段</p>
+        </div>
       </div>
     </div>
 

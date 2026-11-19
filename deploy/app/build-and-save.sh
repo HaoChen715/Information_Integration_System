@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-TAG=${TAG:-0.29.0}
+TAG=${TAG:-0.29.1}
 POSTGRES_IMAGE=${POSTGRES_IMAGE:-postgres:16-alpine}
 OUT=${OUT:-dist}
 mkdir -p "$OUT"

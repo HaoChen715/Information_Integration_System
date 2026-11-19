@@ -29,12 +29,17 @@ const OPTION_COLORS = [
   '#fce7f3',
 ]
 
+interface FieldDraftOption {
+  value: string
+  color: string
+}
+
 interface FieldDraft {
   key: string
   label: string
   type: string
   required: boolean
-  optionsText: string
+  options: FieldDraftOption[]
 }
 
 const tables = ref<DataTable[]>([])
@@ -75,7 +80,9 @@ const heartbeatDraft = computed(() =>
   form.value.fields.find((f) => f.key.trim() === form.value.heartbeat_field),
 )
 const heartbeatOptionValues = computed(() =>
-  heartbeatDraft.value ? parseOptions(heartbeatDraft.value.optionsText).map((o) => o.value) : [],
+  heartbeatDraft.value
+    ? heartbeatDraft.value.options.map((o) => o.value).filter((v) => v.trim())
+    : [],
 )
 
 function onHeartbeatFieldChange() {
@@ -98,6 +105,14 @@ function parseOptions(text: string): FieldOption[] {
     out.push({ value, color: OPTION_COLORS[out.length % OPTION_COLORS.length] })
   }
   return out
+}
+
+function addOption(field: FieldDraft) {
+  field.options.push({ value: '', color: OPTION_COLORS[field.options.length % OPTION_COLORS.length] })
+}
+
+function removeOption(field: FieldDraft, index: number) {
+  field.options.splice(index, 1)
 }
 
 async function load() {
@@ -158,7 +173,7 @@ function openEdit(table: DataTable) {
       label: f.label,
       type: f.type,
       required: f.required,
-      optionsText: (f.options ?? []).map((o) => o.value).join('\n'),
+      options: (f.options ?? []).map((o) => ({ value: o.value, color: o.color || '#e0e7ff' })),
     })),
   }
   showEditor.value = true
@@ -170,7 +185,7 @@ function closeEditor() {
 }
 
 function addField() {
-  form.value.fields.push({ key: '', label: '', type: 'text', required: false, optionsText: '' })
+  form.value.fields.push({ key: '', label: '', type: 'text', required: false, options: [] })
 }
 
 function removeField(index: number) {
@@ -191,7 +206,16 @@ function applyDdl() {
     const parsed = parseCreateTableDdl(ddlText.value)
     form.value.code = parsed.code
     form.value.name = parsed.name
-    form.value.fields = parsed.fields
+    form.value.fields = parsed.fields.map((field) => ({
+      key: field.key,
+      label: field.label,
+      type: field.type,
+      required: field.required,
+      options: parseOptions(field.optionsText).map((option) => ({
+        value: option.value,
+        color: option.color || OPTION_COLORS[0],
+      })),
+    }))
     form.value.title_field = parsed.fields[0]?.key || ''
     ddlNotice.value = `已解析 ${parsed.fields.length} 个字段,请确认表标识、可见部门后保存。`
   } catch (err: unknown) {
@@ -235,12 +259,26 @@ function buildPayload(): TablePayload | null {
       return null
     }
     keys.add(key)
+    const options: FieldOption[] = []
+    if (needsOptions(f.type)) {
+      const seenValues = new Set<string>()
+      for (const option of f.options) {
+        const value = option.value.trim()
+        if (!value || seenValues.has(value)) continue
+        seenValues.add(value)
+        options.push({ value, color: option.color || OPTION_COLORS[0] })
+      }
+      if (!options.length) {
+        saveError.value = `字段「${label}」至少需要一个选项`
+        return null
+      }
+    }
     fields.push({
       key,
       label,
       type: f.type,
       required: f.required,
-      options: needsOptions(f.type) ? parseOptions(f.optionsText) : [],
+      options,
     })
   }
   return {
@@ -526,15 +564,39 @@ onMounted(load)
                   <button class="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-50" @click="removeField(i)">删除</button>
                 </div>
               </div>
-              <label v-if="needsOptions(f.type)" class="mt-2 block">
-                <span class="mb-1 block text-xs text-slate-500">可选项(每行一个或逗号分隔)</span>
-                <textarea
-                  v-model="f.optionsText"
-                  rows="2"
-                  placeholder="例如:&#10;进行中&#10;已完成"
-                  class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
-                />
-              </label>
+              <div v-if="needsOptions(f.type)" class="mt-2 rounded-lg border border-slate-200 bg-white p-2.5">
+                <div class="mb-1.5 flex items-center justify-between">
+                  <span class="text-xs text-slate-500">可选项与颜色</span>
+                  <button class="text-xs text-indigo-600 hover:underline" @click="addOption(f)">+ 添加选项</button>
+                </div>
+                <div class="space-y-1.5">
+                  <div v-for="(opt, oi) in f.options" :key="oi" class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model="opt.value"
+                      placeholder="选项值"
+                      class="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                    />
+                    <input
+                      v-model="opt.color"
+                      type="color"
+                      class="h-8 w-10 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                    />
+                    <div class="flex items-center gap-1">
+                      <button
+                        v-for="c in OPTION_COLORS"
+                        :key="c"
+                        type="button"
+                        class="h-5 w-5 rounded-full border border-white ring-1 ring-slate-200 transition hover:scale-110"
+                        :style="{ background: c }"
+                        :title="c"
+                        @click="opt.color = c"
+                      />
+                    </div>
+                    <button class="text-xs text-red-400 hover:text-red-600" @click="removeOption(f, oi)">删除</button>
+                  </div>
+                  <p v-if="!f.options.length" class="text-xs text-slate-400">还没有选项,点击「添加选项」</p>
+                </div>
+              </div>
             </div>
             <p v-if="!form.fields.length" class="rounded-lg border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">
               至少添加一个字段

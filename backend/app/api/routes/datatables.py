@@ -108,7 +108,7 @@ def update_record(
     if record is None:
         raise HTTPException(status_code=404, detail="记录不存在")
     _check_record_access(db, table, record, current, "data:edit", _is_global(current))
-    record = crud.update_record(db, record, dict(payload.data))
+    record = crud.update_record(db, table, record, dict(payload.data))
     return RecordOut(
         id=record.id,
         data=record.data or {},

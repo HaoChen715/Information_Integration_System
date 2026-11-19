@@ -66,9 +66,9 @@ const router = createRouter({
       meta: { admin: true },
     },
     {
-      path: '/admin/baserow',
-      name: 'admin-baserow',
-      component: () => import('../views/admin/AdminBaserowView.vue'),
+      path: '/admin/datatables',
+      name: 'admin-datatables',
+      component: () => import('../views/admin/AdminDataTablesView.vue'),
       meta: { admin: true },
     },
     {

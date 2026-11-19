@@ -138,8 +138,12 @@ def create_record(db: Session, table: DataTable, user: User, data: dict) -> Data
     return record
 
 
-def update_record(db: Session, record: DataRecord, data: dict) -> DataRecord:
+def update_record(db: Session, table: DataTable, record: DataRecord, data: dict) -> DataRecord:
     record.data = data
+    if table.scope_by_department and table.department_field:
+        dept = data.get(table.department_field)
+        if dept not in (None, ""):
+            record.department = str(dept)
     db.add(record)
     db.commit()
     db.refresh(record)

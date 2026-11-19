@@ -35,6 +35,12 @@ const router = createRouter({
       meta: { permission: 'data:view' },
     },
     {
+      path: '/department/data/:code',
+      name: 'department-data-panel',
+      component: () => import('../views/DataTableView.vue'),
+      meta: { permission: 'data:view' },
+    },
+    {
       path: '/monitor',
       alias: ['/monitor/'],
       name: 'monitor',

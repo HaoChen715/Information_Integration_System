@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import AppLayout from '../components/AppLayout.vue'
 import * as dtApi from '../api/datatables'
@@ -7,6 +8,8 @@ import type { DataField, DataRecord, DataTable } from '../api/datatables'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 
 const tables = ref<DataTable[]>([])
 const activeCode = ref('')
@@ -49,12 +52,19 @@ function recordTitle(record: DataRecord): string {
   return cellText(f, record.data[f.key]) || `#${record.id}`
 }
 
+function openPanel() {
+  const table = activeTable.value
+  if (table) router.push(`/department/data/${table.code}`)
+}
+
 async function loadTables() {
   loading.value = true
   error.value = ''
   try {
     tables.value = await dtApi.listTables()
-    if (!activeCode.value && tables.value.length) activeCode.value = tables.value[0].code
+    const wanted = String(route.query.table || '')
+    if (wanted && tables.value.some((t) => t.code === wanted)) activeCode.value = wanted
+    else if (!activeCode.value && tables.value.length) activeCode.value = tables.value[0].code
   } catch (err: unknown) {
     error.value =
       (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '加载数据表失败'
@@ -217,6 +227,13 @@ async function remove(record: DataRecord) {
           @click="loadRows"
         >
           搜索
+        </button>
+        <button
+          v-if="activeTable"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          @click="openPanel"
+        >
+          面板视图
         </button>
         <button
           v-if="canCreate && activeTable"

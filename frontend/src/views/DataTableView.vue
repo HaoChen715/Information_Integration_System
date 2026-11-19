@@ -659,7 +659,7 @@ onMounted(load)
             >
               <span v-if="isHeartbeatField(statusField)" class="relative inline-flex h-1.5 w-1.5">
                 <span
-                  v-if="heartbeatActive(row)"
+                  v-if="heartbeatActive(row) && !modalOpen"
                   class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 motion-reduce:animate-none"
                   :style="{ background: statusColor(row) }"
                 />
@@ -687,9 +687,10 @@ onMounted(load)
       </section>
     </div>
 
+    <Teleport to="body">
     <div
       v-if="modalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
       @click.self="closeModal"
     >
       <div class="modal-in max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
@@ -851,6 +852,7 @@ onMounted(load)
         </div>
       </div>
     </div>
+    </Teleport>
   </AppLayout>
 </template>
 

@@ -354,9 +354,10 @@ async function remove(record: DataRecord) {
     </div>
 
     <!-- 详情 -->
+    <Teleport to="body">
     <div
       v-if="detail"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
       @click.self="detail = null"
     >
       <div class="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
@@ -424,7 +425,7 @@ async function remove(record: DataRecord) {
     <!-- 新增 / 编辑 -->
     <div
       v-if="showEditor"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
       @click.self="showEditor = false"
     >
       <div class="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
@@ -503,5 +504,6 @@ async function remove(record: DataRecord) {
         </div>
       </div>
     </div>
+    </Teleport>
   </AppLayout>
 </template>

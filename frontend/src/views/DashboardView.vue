@@ -230,7 +230,7 @@ async function removeAv() {
           :href="card.external ? card.href : undefined"
           :target="card.external ? '_blank' : undefined"
           :rel="card.external ? 'noopener' : undefined"
-          class="group rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md transition hover:bg-white/20"
+          class="group rounded-2xl border border-white/20 bg-white/10 p-5 transition hover:bg-white/20"
         >
           <p class="font-semibold text-white">{{ card.title }}</p>
           <p class="mt-1 text-xs text-white/70">{{ card.desc }}</p>

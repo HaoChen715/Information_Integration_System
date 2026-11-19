@@ -51,7 +51,7 @@ function handleLogout() {
 
 <template>
   <div class="min-h-screen bg-slate-100 pt-[60px]">
-    <header class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white/95">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <div class="flex items-center gap-6">
           <button

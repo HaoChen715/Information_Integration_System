@@ -8,10 +8,20 @@ from app.api.deps import get_current_user
 from app.core.avatars import avatar_url
 from app.core.presence import is_online
 from app.db.session import get_db
+from app.models.department import Department
 from app.models.user import User
-from app.schemas.rbac import DepartmentMemberOut
+from app.schemas.rbac import DepartmentMemberOut, DepartmentOut
 
 router = APIRouter(prefix="/departments", tags=["部门"])
+
+
+@router.get("/options", response_model=list[DepartmentOut], summary="部门选项")
+def department_options(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> list[DepartmentOut]:
+    rows = list(db.execute(select(Department).order_by(Department.name)).scalars())
+    return [DepartmentOut.model_validate(d) for d in rows]
 
 
 @router.get(

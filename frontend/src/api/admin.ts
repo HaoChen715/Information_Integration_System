@@ -170,6 +170,11 @@ export async function fetchDepartments(): Promise<Department[]> {
   return data
 }
 
+export async function fetchDepartmentOptions(): Promise<Department[]> {
+  const { data } = await client.get<Department[]>('/departments/options')
+  return data
+}
+
 export async function createDepartment(payload: {
   name: string
   description?: string | null

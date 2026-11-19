@@ -3,12 +3,17 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import AppLayout from '../components/AppLayout.vue'
 import * as dtApi from '../api/datatables'
-import type { DataField, DataRecord, DataTable } from '../api/datatables'
+import { fetchDepartmentOptions } from '../api/admin'
+import type { Department } from '../api/admin'
+import type { DataField, DataRecord, DataTable, FieldOption } from '../api/datatables'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
 
+const DEPARTMENT_COLORS = ['#e0e7ff', '#dcfce7', '#fef3c7', '#fee2e2', '#cffafe', '#f3e8ff', '#f1f5f9', '#fce7f3']
+
 const tables = ref<DataTable[]>([])
+const departments = ref<Department[]>([])
 const activeCode = ref('')
 const rows = ref<DataRecord[]>([])
 const search = ref('')
@@ -26,8 +31,18 @@ const canCreate = computed(() => auth.hasPermission('data:create'))
 const canEdit = computed(() => auth.hasPermission('data:edit'))
 const canDelete = computed(() => auth.hasPermission('data:delete'))
 
+function optionsOf(field: DataField): FieldOption[] {
+  if (activeTable.value?.department_field && field.key === activeTable.value.department_field) {
+    return departments.value.map((d, i) => ({
+      value: d.name,
+      color: DEPARTMENT_COLORS[i % DEPARTMENT_COLORS.length],
+    }))
+  }
+  return field.options
+}
+
 function optionColor(field: DataField, value: string): string {
-  return field.options.find((o) => o.value === value)?.color || '#eef2ff'
+  return optionsOf(field).find((o) => o.value === value)?.color || '#eef2ff'
 }
 
 function selectValues(field: DataField, value: unknown): string[] {
@@ -88,7 +103,11 @@ watch(activeCode, () => {
 
 onMounted(async () => {
   if (!auth.user) await auth.loadUser()
-  await loadTables()
+  const [, deptOptions] = await Promise.all([
+    loadTables(),
+    fetchDepartmentOptions().catch(() => [] as Department[]),
+  ])
+  departments.value = deptOptions
   await loadRows()
 })
 
@@ -425,11 +444,11 @@ async function remove(record: DataRecord) {
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             >
               <option value="">（空）</option>
-              <option v-for="o in f.options" :key="o.value" :value="o.value">{{ o.value }}</option>
+              <option v-for="o in optionsOf(f)" :key="o.value" :value="o.value">{{ o.value }}</option>
             </select>
             <div v-else-if="f.type === 'multiple_select'" class="flex flex-wrap gap-2">
               <label
-                v-for="o in f.options"
+                v-for="o in optionsOf(f)"
                 :key="o.value"
                 class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
               >

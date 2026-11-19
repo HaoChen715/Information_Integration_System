@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 
 import AppLayout from '../../components/AppLayout.vue'
 import * as dtApi from '../../api/datatables'
+import * as adminApi from '../../api/admin'
+import type { Department } from '../../api/admin'
 import type { DataTable, FieldOption, TablePayload } from '../../api/datatables'
 
 const FIELD_TYPES = [
@@ -35,6 +37,7 @@ interface FieldDraft {
 }
 
 const tables = ref<DataTable[]>([])
+const departments = ref<Department[]>([])
 const loading = ref(false)
 const error = ref('')
 
@@ -62,6 +65,22 @@ function needsOptions(type: string): boolean {
   return type === 'single_select' || type === 'multiple_select'
 }
 
+function isDeptField(key: string): boolean {
+  return form.value.scope_by_department && form.value.department_field === key
+}
+
+function onDepartmentFieldChange() {
+  const field = form.value.fields.find((f) => f.key === form.value.department_field)
+  if (field) field.type = 'single_select'
+}
+
+function departmentFieldOptions(): FieldOption[] {
+  return departments.value.map((d, i) => ({
+    value: d.name,
+    color: OPTION_COLORS[i % OPTION_COLORS.length],
+  }))
+}
+
 function parseOptions(text: string): FieldOption[] {
   const seen = new Set<string>()
   const out: FieldOption[] = []
@@ -78,7 +97,12 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    tables.value = await dtApi.listAdminTables()
+    const [tableRows, deptOptions] = await Promise.all([
+      dtApi.listAdminTables(),
+      adminApi.fetchDepartmentOptions().catch(() => [] as Department[]),
+    ])
+    tables.value = tableRows
+    departments.value = deptOptions
   } catch (err: unknown) {
     error.value =
       (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '加载数据表失败'
@@ -116,7 +140,7 @@ function openEdit(table: DataTable) {
     fields: table.fields.map((f) => ({
       key: f.key,
       label: f.label,
-      type: f.type,
+      type: table.department_field === f.key ? 'single_select' : f.type,
       required: f.required,
       optionsText: (f.options ?? []).map((o) => o.value).join('\n'),
     })),
@@ -156,6 +180,7 @@ function buildPayload(): TablePayload | null {
   }
   const keys = new Set<string>()
   const fields = []
+  const deptOptions = departmentFieldOptions()
   for (const f of form.value.fields) {
     const key = f.key.trim()
     const label = f.label.trim()
@@ -172,12 +197,13 @@ function buildPayload(): TablePayload | null {
       return null
     }
     keys.add(key)
+    const deptField = form.value.scope_by_department && key === form.value.department_field
     fields.push({
       key,
       label,
-      type: f.type,
+      type: deptField ? 'single_select' : f.type,
       required: f.required,
-      options: needsOptions(f.type) ? parseOptions(f.optionsText) : [],
+      options: deptField ? deptOptions : needsOptions(f.type) ? parseOptions(f.optionsText) : [],
     })
   }
   return {
@@ -343,6 +369,7 @@ onMounted(load)
             <select
               v-model="form.department_field"
               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              @change="onDepartmentFieldChange"
             >
               <option value="">不指定(记录归属创建者部门)</option>
               <option v-for="f in fieldKeyOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
@@ -388,13 +415,25 @@ onMounted(load)
                   <input v-model="f.required" type="checkbox" class="h-3.5 w-3.5 accent-indigo-500" />
                   必填
                 </label>
+                <span
+                  v-if="isDeptField(f.key)"
+                  class="mb-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] text-indigo-600"
+                >
+                  部门选项
+                </span>
                 <div class="ml-auto flex items-center gap-1 pb-1">
                   <button class="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white hover:text-slate-600" @click="moveField(i, -1)">↑</button>
                   <button class="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-white hover:text-slate-600" @click="moveField(i, 1)">↓</button>
                   <button class="rounded px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-50" @click="removeField(i)">删除</button>
                 </div>
               </div>
-              <label v-if="needsOptions(f.type)" class="mt-2 block">
+              <div
+                v-if="isDeptField(f.key)"
+                class="mt-2 rounded-lg bg-indigo-50/70 px-3 py-2 text-xs text-indigo-700"
+              >
+                选项自动取自「部门管理」中已创建的 {{ departments.length }} 个部门,无需手动填写。
+              </div>
+              <label v-else-if="needsOptions(f.type)" class="mt-2 block">
                 <span class="mb-1 block text-xs text-slate-500">可选项(每行一个或逗号分隔)</span>
                 <textarea
                   v-model="f.optionsText"

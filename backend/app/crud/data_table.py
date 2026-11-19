@@ -44,6 +44,8 @@ def create_table(db: Session, data: TableCreate) -> DataTable:
         title_field=data.title_field,
         scope_by_department=data.scope_by_department,
         visible_departments=list(data.visible_departments or []),
+        heartbeat_field=data.heartbeat_field,
+        heartbeat_values=list(data.heartbeat_values or []),
         department_field=data.department_field,
     )
     _replace_fields(db, table, data.fields)
@@ -64,6 +66,10 @@ def update_table(db: Session, table: DataTable, data: TableUpdate) -> DataTable:
         table.scope_by_department = data.scope_by_department
     if data.visible_departments is not None:
         table.visible_departments = list(data.visible_departments)
+    if data.heartbeat_field is not None:
+        table.heartbeat_field = data.heartbeat_field
+    if data.heartbeat_values is not None:
+        table.heartbeat_values = list(data.heartbeat_values)
     if data.department_field is not None:
         table.department_field = data.department_field
     if data.fields is not None:

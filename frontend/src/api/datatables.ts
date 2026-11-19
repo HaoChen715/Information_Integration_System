@@ -22,6 +22,8 @@ export interface DataTable {
   title_field: string
   scope_by_department: boolean
   visible_departments: string[]
+  heartbeat_field: string
+  heartbeat_values: string[]
   department_field: string
   fields: DataField[]
 }
@@ -41,6 +43,8 @@ export interface TablePayload {
   title_field?: string
   scope_by_department?: boolean
   visible_departments?: string[]
+  heartbeat_field?: string
+  heartbeat_values?: string[]
   department_field?: string
   fields: FieldDef[]
 }

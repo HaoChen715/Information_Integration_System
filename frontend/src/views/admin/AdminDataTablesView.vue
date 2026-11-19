@@ -57,6 +57,8 @@ const form = ref({
   title_field: '',
   scope_by_department: true,
   visible_departments: [] as string[],
+  heartbeat_field: '',
+  heartbeat_values: [] as string[],
   fields: [] as FieldDraft[],
 })
 
@@ -64,6 +66,23 @@ const isEditing = computed(() => editingId.value !== null)
 const fieldKeyOptions = computed(() =>
   form.value.fields.filter((f) => f.key.trim()).map((f) => ({ key: f.key.trim(), label: f.label || f.key })),
 )
+const heartbeatFieldOptions = computed(() =>
+  form.value.fields
+    .filter((f) => f.key.trim() && f.type === 'single_select')
+    .map((f) => ({ key: f.key.trim(), label: f.label || f.key })),
+)
+const heartbeatDraft = computed(() =>
+  form.value.fields.find((f) => f.key.trim() === form.value.heartbeat_field),
+)
+const heartbeatOptionValues = computed(() =>
+  heartbeatDraft.value ? parseOptions(heartbeatDraft.value.optionsText).map((o) => o.value) : [],
+)
+
+function onHeartbeatFieldChange() {
+  form.value.heartbeat_values = form.value.heartbeat_values.filter((v) =>
+    heartbeatOptionValues.value.includes(v),
+  )
+}
 
 function needsOptions(type: string): boolean {
   return type === 'single_select' || type === 'multiple_select'
@@ -112,6 +131,8 @@ function openCreate() {
     title_field: '',
     scope_by_department: true,
     visible_departments: [],
+    heartbeat_field: '',
+    heartbeat_values: [],
     fields: [],
   }
   addField()
@@ -130,6 +151,8 @@ function openEdit(table: DataTable) {
     title_field: table.title_field ?? '',
     scope_by_department: table.scope_by_department,
     visible_departments: [...(table.visible_departments ?? [])],
+    heartbeat_field: table.heartbeat_field ?? '',
+    heartbeat_values: [...(table.heartbeat_values ?? [])],
     fields: table.fields.map((f) => ({
       key: f.key,
       label: f.label,
@@ -190,6 +213,10 @@ function buildPayload(): TablePayload | null {
     saveError.value = '按部门隔离时,请至少选择一个可见部门'
     return null
   }
+  if (form.value.heartbeat_field && !form.value.heartbeat_values.length) {
+    saveError.value = '请勾选心跳字段中需要闪烁的状态值'
+    return null
+  }
   const keys = new Set<string>()
   const fields = []
   for (const f of form.value.fields) {
@@ -223,6 +250,8 @@ function buildPayload(): TablePayload | null {
     title_field: form.value.title_field,
     scope_by_department: form.value.scope_by_department,
     visible_departments: form.value.scope_by_department ? form.value.visible_departments : [],
+    heartbeat_field: form.value.heartbeat_field,
+    heartbeat_values: form.value.heartbeat_field ? form.value.heartbeat_values : [],
     fields,
   }
 }
@@ -422,6 +451,34 @@ onMounted(load)
             <span class="mt-1 block text-[11px] text-slate-400">
               记录按这里选择的部门归属;用户只能看到自己部门在其中的数据表
             </span>
+          </div>
+          <div class="block sm:col-span-2">
+            <span class="mb-1 block text-sm text-slate-600">心跳字段(单选,可选)</span>
+            <select
+              v-model="form.heartbeat_field"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              @change="onHeartbeatFieldChange"
+            >
+              <option value="">不启用</option>
+              <option v-for="f in heartbeatFieldOptions" :key="f.key" :value="f.key">{{ f.label }}</option>
+            </select>
+            <div v-if="form.heartbeat_field" class="mt-2 rounded-lg bg-slate-50 px-3 py-2">
+              <p class="text-xs text-slate-500">勾选需要闪烁的状态值:</p>
+              <div class="mt-1.5 flex flex-wrap gap-2">
+                <label
+                  v-for="v in heartbeatOptionValues"
+                  :key="v"
+                  class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-600"
+                >
+                  <input v-model="form.heartbeat_values" type="checkbox" :value="v" class="h-3.5 w-3.5 accent-indigo-500" />
+                  {{ v }}
+                </label>
+                <span v-if="!heartbeatOptionValues.length" class="text-xs text-amber-600">
+                  该字段暂无可选项,请先在字段设置里填写选项
+                </span>
+              </div>
+              <p class="mt-1 text-[11px] text-slate-400">闪烁颜色取自该字段选项颜色</p>
+            </div>
           </div>
         </div>
 

@@ -21,6 +21,8 @@ def table_out(table) -> TableOut:
         title_field=table.title_field,
         scope_by_department=table.scope_by_department,
         visible_departments=table.visible_departments or [],
+        heartbeat_field=table.heartbeat_field or "",
+        heartbeat_values=table.heartbeat_values or [],
         department_field=table.department_field or "",
         fields=[
             FieldOut(

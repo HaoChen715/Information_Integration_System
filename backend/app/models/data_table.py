@@ -35,6 +35,9 @@ class DataTable(Base):
     scope_by_department: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # 表归属/可见部门(部门管理中的部门名称,多选;空=不限制)
     visible_departments: Mapped[list] = mapped_column(JSONType, default=list)
+    # 心跳字段(单选字段 key)与触发闪烁的选项值
+    heartbeat_field: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    heartbeat_values: Mapped[list] = mapped_column(JSONType, default=list)
     # 兼容旧字段:记录部门取值所用字段 key(新逻辑不再使用)
     department_field: Mapped[str] = mapped_column(String(64), default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

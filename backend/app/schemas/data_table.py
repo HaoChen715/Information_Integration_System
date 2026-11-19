@@ -30,6 +30,8 @@ class TableCreate(BaseModel):
     title_field: str = ""
     scope_by_department: bool = True
     visible_departments: list[str] = []
+    heartbeat_field: str = ""
+    heartbeat_values: list[str] = []
     department_field: str = ""
     fields: list[FieldDef] = []
 
@@ -40,6 +42,8 @@ class TableUpdate(BaseModel):
     title_field: Optional[str] = None
     scope_by_department: Optional[bool] = None
     visible_departments: Optional[list[str]] = None
+    heartbeat_field: Optional[str] = None
+    heartbeat_values: Optional[list[str]] = None
     department_field: Optional[str] = None
     fields: Optional[list[FieldDef]] = None
 
@@ -52,6 +56,8 @@ class TableOut(BaseModel):
     title_field: str
     scope_by_department: bool
     visible_departments: list[str] = []
+    heartbeat_field: str = ""
+    heartbeat_values: list[str] = []
     department_field: str = ""
     fields: list[FieldOut] = []
 

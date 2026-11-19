@@ -16,13 +16,22 @@ _ADDED_COLUMNS = [
     ("baserow_tables", "title_field", "VARCHAR(128)"),
     ("data_tables", "department_field", "VARCHAR(64)"),
     ("data_tables", "visible_departments", "JSON"),
+    ("data_tables", "heartbeat_field", "VARCHAR(64)"),
+    ("data_tables", "heartbeat_values", "JSON"),
 ]
+
+_JSON_COLUMNS = {
+    ("data_tables", "visible_departments"),
+    ("data_tables", "heartbeat_values"),
+}
 
 # (表, 列, 回填默认值 SQL 字面量)
 _BACKFILLS = [
     ("baserow_tables", "title_field", "''"),
     ("data_tables", "department_field", "''"),
     ("data_tables", "visible_departments", "'[]'"),
+    ("data_tables", "heartbeat_field", "''"),
+    ("data_tables", "heartbeat_values", "'[]'"),
 ]
 
 
@@ -35,7 +44,7 @@ def ensure_columns(engine: Engine) -> None:
         existing = {col["name"] for col in inspector.get_columns(table)}
         if column in existing:
             continue
-        if (table, column) == ("data_tables", "visible_departments"):
+        if (table, column) in _JSON_COLUMNS:
             ddl = (
                 "JSONB NOT NULL DEFAULT '[]'::jsonb"
                 if engine.dialect.name == "postgresql"

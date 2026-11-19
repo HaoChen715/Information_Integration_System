@@ -41,9 +41,14 @@ const titleField = computed<DataField | undefined>(() => {
   const key = table.value?.title_field
   return fields.value.find((f) => f.key === key) ?? fields.value[0]
 })
-const statusField = computed<DataField | undefined>(
-  () => fields.value.find((f) => f.type === 'single_select'),
-)
+const statusField = computed<DataField | undefined>(() => {
+  const heartbeatKey = table.value?.heartbeat_field
+  if (heartbeatKey) {
+    const found = fields.value.find((f) => f.key === heartbeatKey)
+    if (found) return found
+  }
+  return fields.value.find((f) => f.type === 'single_select')
+})
 const filterableFields = computed<DataField[]>(() =>
   fields.value.filter((f) => f.type === 'single_select' || f.type === 'multiple_select' || f.type === 'boolean'),
 )
@@ -108,6 +113,29 @@ function statusColor(row: DataRecord): string {
   const f = statusField.value
   const value = statusText(row)
   return f && value ? optionColor(f, value) : '#f1f5f9'
+}
+
+const heartbeatField = computed<DataField | undefined>(() => {
+  const key = table.value?.heartbeat_field
+  return key ? fields.value.find((f) => f.key === key) : undefined
+})
+
+function isHeartbeatField(field: DataField | undefined): boolean {
+  return Boolean(field && table.value?.heartbeat_field && field.key === table.value.heartbeat_field)
+}
+
+function heartbeatActive(row: DataRecord): boolean {
+  const field = heartbeatField.value
+  if (!field) return false
+  const activeValues = table.value?.heartbeat_values ?? []
+  return selectValues(field, row.data[field.key]).some((v) => activeValues.includes(v))
+}
+
+function heartbeatColor(row: DataRecord): string {
+  const field = heartbeatField.value
+  if (!field) return '#22c55e'
+  const values = selectValues(field, row.data[field.key])
+  return values.length ? optionColor(field, values[0]) : '#22c55e'
 }
 
 function valuesOf(field: DataField): string[] {
@@ -616,18 +644,29 @@ onMounted(load)
           <button
             v-for="row in g.rows"
             :key="row.id"
-            class="group flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg"
+            :class="[
+              'group flex flex-col rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg',
+              heartbeatActive(row) ? 'ring-1 ring-emerald-200/70' : '',
+            ]"
             @click="openDetail(row)"
           >
             <div class="flex items-start justify-between gap-2">
               <p class="truncate text-sm font-semibold text-slate-800">{{ recordTitle(row) }}</p>
-              <span
-                v-if="statusText(row)"
-                class="shrink-0 rounded-full px-2 py-0.5 text-[11px] text-slate-700"
-                :style="{ background: statusColor(row) }"
-              >
-                {{ statusText(row) }}
+            <span
+              v-if="statusText(row)"
+              class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] text-slate-700"
+              :style="{ background: statusColor(row) }"
+            >
+              <span v-if="isHeartbeatField(statusField)" class="relative inline-flex h-1.5 w-1.5">
+                <span
+                  v-if="heartbeatActive(row)"
+                  class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 motion-reduce:animate-none"
+                  :style="{ background: statusColor(row) }"
+                />
+                <span class="relative inline-flex h-1.5 w-1.5 rounded-full" :style="{ background: statusColor(row) }" />
               </span>
+              {{ statusText(row) }}
+            </span>
             </div>
 
             <div class="mt-3 space-y-1.5">
@@ -667,8 +706,30 @@ onMounted(load)
         </div>
 
         <div v-if="!editing && detail" class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <div v-for="f in fields" :key="f.id" class="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
-            <p class="text-[11px] text-slate-400">{{ f.label }}</p>
+          <div
+            v-for="f in fields"
+            :key="f.id"
+            class="rounded-xl border px-3 py-2.5"
+            :class="
+              isHeartbeatField(f) && detail && heartbeatActive(detail)
+                ? 'border-emerald-200 bg-emerald-50/40'
+                : 'border-slate-100 bg-slate-50/50'
+            "
+          >
+            <p class="flex items-center gap-1.5 text-[11px] text-slate-400">
+              {{ f.label }}
+              <span v-if="isHeartbeatField(f)" class="relative inline-flex h-2 w-2">
+                <span
+                  v-if="detail && heartbeatActive(detail)"
+                  class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70 motion-reduce:animate-none"
+                  :style="{ background: heartbeatColor(detail) }"
+                />
+                <span
+                  class="relative inline-flex h-2 w-2 rounded-full"
+                  :style="{ background: detail ? heartbeatColor(detail) : '#cbd5e1' }"
+                />
+              </span>
+            </p>
             <div class="mt-1 text-sm text-slate-700">
               <span
                 v-if="f.type === 'single_select' || f.type === 'multiple_select'"

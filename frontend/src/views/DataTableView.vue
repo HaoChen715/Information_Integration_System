@@ -5,9 +5,11 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '../components/AppLayout.vue'
 import * as dtApi from '../api/datatables'
 import type { DataField, DataRecord, DataTable } from '../api/datatables'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const code = computed(() => String(route.params.code || ''))
 const table = ref<DataTable | null>(null)
@@ -18,6 +20,15 @@ const search = ref('')
 const groupBy = ref('')
 const filters = ref<Record<string, string>>({})
 const detail = ref<DataRecord | null>(null)
+const modalOpen = ref(false)
+const editing = ref(false)
+const form = ref<Record<string, any>>({})
+const saving = ref(false)
+const formError = ref('')
+
+const canCreate = computed(() => auth.hasPermission('data:create'))
+const canEdit = computed(() => auth.hasPermission('data:edit'))
+const canDelete = computed(() => auth.hasPermission('data:delete'))
 
 const GROUP_COLORS = ['#eef2ff', '#ecfdf5', '#fffbeb', '#fef2f2', '#ecfeff', '#faf5ff', '#f1f5f9', '#fdf2f8']
 const OPTION_COLORS = ['#e0e7ff', '#dcfce7', '#fef3c7', '#fee2e2', '#cffafe', '#f3e8ff', '#f1f5f9', '#fce7f3']
@@ -213,8 +224,109 @@ function backToTable() {
   router.push({ path: '/department/data', query: { table: code.value } })
 }
 
+function initForm(values?: Record<string, unknown>) {
+  const init: Record<string, any> = {}
+  for (const field of fields.value) {
+    const value = values?.[field.key]
+    if (field.type === 'boolean') init[field.key] = Boolean(value)
+    else if (field.type === 'multiple_select') init[field.key] = Array.isArray(value) ? value.map(String) : []
+    else init[field.key] = value ?? ''
+  }
+  form.value = init
+}
+
 function openDetail(row: DataRecord) {
   detail.value = row
+  editing.value = false
+  formError.value = ''
+  modalOpen.value = true
+}
+
+function startCreate() {
+  detail.value = null
+  editing.value = true
+  formError.value = ''
+  initForm()
+  modalOpen.value = true
+}
+
+function startEdit() {
+  if (!detail.value) return
+  editing.value = true
+  formError.value = ''
+  initForm(detail.value.data)
+}
+
+function cancelEdit() {
+  formError.value = ''
+  if (detail.value) editing.value = false
+  else closeModal()
+}
+
+function closeModal() {
+  modalOpen.value = false
+  editing.value = false
+  detail.value = null
+  formError.value = ''
+}
+
+function normalize(field: DataField, value: unknown): unknown {
+  if (field.type === 'multiple_select') return Array.isArray(value) ? value : []
+  if (field.type === 'boolean') return Boolean(value)
+  if (value === '' || value === null || value === undefined) return null
+  if (field.type === 'number') {
+    const n = Number(value)
+    return Number.isNaN(n) ? null : n
+  }
+  return value
+}
+
+async function saveRecord() {
+  const values: Record<string, unknown> = {}
+  for (const field of fields.value) {
+    const value = normalize(field, form.value[field.key])
+    if (field.required && (value === null || value === '' || (Array.isArray(value) && !value.length))) {
+      formError.value = `请填写必填字段「${field.label}」`
+      return
+    }
+    values[field.key] = value
+  }
+  saving.value = true
+  formError.value = ''
+  try {
+    if (detail.value) {
+      const updated = await dtApi.updateRecord(code.value, detail.value.id, values)
+      detail.value = updated
+      await loadRows()
+      const found = rows.value.find((r) => r.id === updated.id)
+      if (found) detail.value = found
+      editing.value = false
+    } else {
+      await dtApi.createRecord(code.value, values)
+      await loadRows()
+      closeModal()
+    }
+  } catch (err: unknown) {
+    formError.value =
+      (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '保存失败'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function removeRecord(row: DataRecord) {
+  if (!confirm('确认删除该记录?')) return
+  try {
+    await dtApi.deleteRecord(code.value, row.id)
+    closeModal()
+    await loadRows()
+  } catch (err: unknown) {
+    alert((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || '删除失败')
+  }
+}
+
+function removeCurrent() {
+  if (detail.value) void removeRecord(detail.value)
 }
 
 watch(code, () => {
@@ -240,12 +352,21 @@ onMounted(load)
           </span>
         </p>
       </div>
-      <button
-        class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-        @click="backToTable"
-      >
-        表格视图
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="canCreate"
+          class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
+          @click="startCreate"
+        >
+          新增
+        </button>
+        <button
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          @click="backToTable"
+        >
+          表格视图
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{{ error }}</p>
@@ -373,20 +494,24 @@ onMounted(load)
     </div>
 
     <div
-      v-if="detail"
+      v-if="modalOpen"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
-      @click.self="detail = null"
+      @click.self="closeModal"
     >
       <div class="modal-in max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <h2 class="truncate text-xl font-bold text-slate-800">{{ recordTitle(detail) }}</h2>
-            <p class="mt-0.5 text-xs text-slate-400">{{ detail.department || '未设置部门' }} · {{ detail.owner_username }}</p>
+            <h2 class="truncate text-xl font-bold text-slate-800">
+              {{ detail ? recordTitle(detail) : '新增记录' }}
+            </h2>
+            <p class="mt-0.5 text-xs text-slate-400">
+              {{ detail ? `${detail.department || '未设置部门'} · ${detail.owner_username}` : table?.name }}
+            </p>
           </div>
-          <button class="text-slate-400 hover:text-slate-600" @click="detail = null">✕</button>
+          <button class="text-slate-400 hover:text-slate-600" @click="closeModal">✕</button>
         </div>
 
-        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div v-if="!editing && detail" class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <div v-for="f in fields" :key="f.id" class="rounded-xl border border-slate-100 bg-slate-50/50 px-3 py-2.5">
             <p class="text-[11px] text-slate-400">{{ f.label }}</p>
             <div class="mt-1 text-sm text-slate-700">
@@ -410,15 +535,103 @@ onMounted(load)
           </div>
         </div>
 
-        <p class="mt-4 text-[11px] text-slate-400">
+        <div v-else class="mt-5 grid gap-4 sm:grid-cols-2">
+          <label v-for="f in fields" :key="f.id" class="block">
+            <span class="mb-1 block text-sm text-slate-600">
+              {{ f.label }} <span v-if="f.required" class="text-red-400">*</span>
+            </span>
+            <select
+              v-if="f.type === 'single_select'"
+              v-model="form[f.key]"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            >
+              <option value="">（空）</option>
+              <option v-for="o in f.options" :key="o.value" :value="o.value">{{ o.value }}</option>
+            </select>
+            <div v-else-if="f.type === 'multiple_select'" class="flex flex-wrap gap-2">
+              <label
+                v-for="o in f.options"
+                :key="o.value"
+                class="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                <input
+                  v-model="form[f.key]"
+                  type="checkbox"
+                  :value="o.value"
+                  class="h-3.5 w-3.5 accent-indigo-500"
+                />
+                {{ o.value }}
+              </label>
+            </div>
+            <label v-else-if="f.type === 'boolean'" class="flex items-center gap-2 text-sm text-slate-600">
+              <input v-model="form[f.key]" type="checkbox" class="h-4 w-4 accent-indigo-500" />
+              是
+            </label>
+            <input
+              v-else-if="f.type === 'number'"
+              v-model="form[f.key]"
+              type="number"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <input
+              v-else-if="f.type === 'date'"
+              v-model="form[f.key]"
+              type="date"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <textarea
+              v-else-if="f.type === 'long_text'"
+              v-model="form[f.key]"
+              rows="3"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <input
+              v-else
+              v-model="form[f.key]"
+              type="text"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <p v-if="!fields.length" class="text-sm text-slate-400">该表还没有字段。</p>
+        </div>
+
+        <p v-if="detail" class="mt-4 text-[11px] text-slate-400">
           创建 {{ new Date(detail.created_at).toLocaleString() }} · 更新 {{ new Date(detail.updated_at).toLocaleString() }}
         </p>
 
-        <div class="mt-5 flex gap-2 border-t border-slate-100 pt-4">
-          <button class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600" @click="backToTable">
-            去表格视图编辑
-          </button>
-          <button class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600" @click="detail = null">关闭</button>
+        <div class="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+          <template v-if="editing">
+            <button
+              class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50"
+              :disabled="saving"
+              @click="saveRecord"
+            >
+              {{ saving ? '保存中...' : '保存' }}
+            </button>
+            <button class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600" @click="cancelEdit">
+              取消
+            </button>
+            <span v-if="formError" class="text-sm text-red-500">{{ formError }}</span>
+          </template>
+          <template v-else>
+            <button
+              v-if="canEdit && detail"
+              class="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
+              @click="startEdit"
+            >
+              编辑
+            </button>
+            <button
+              v-if="canDelete && detail"
+              class="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+              @click="removeCurrent"
+            >
+              删除
+            </button>
+            <button class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600" @click="closeModal">
+              关闭
+            </button>
+          </template>
         </div>
       </div>
     </div>
